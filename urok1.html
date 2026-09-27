@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Урок — Freebies AI Training</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="header">
+ <div class="container header-inner">
+  <a class="logo" href="index.html"><span class="logo-mark">✦</span><span>Freebies Ai<br><span class="logo-orange">Training</span></span></a>
+  <nav class="nav"><a href="index.html">Главная</a><a class="active" href="main.html">Уроки</a><a href="main.html#extras">Функции</a><a href="main.html#about">О нас</a><a href="main.html#faq">FAQ</a></nav>
+  <div class="profile"><span class="coin">🪙 743</span><button class="login" onclick="notify('Добро пожаловать!')">Войти</button><button class="menu">☰</button></div>
+ </div>
+</header>
+
+<main class="lesson-page">
+ <div class="container">
+  <div class="lesson-head">
+   <button class="back-btn" onclick="location.href='main.html'">←</button>
+   <div class="lesson-head-text">
+    <div class="eyebrow" id="lessonTopic">Загрузка...</div>
+    <h1 id="lessonTitle">Загрузка урока...</h1>
+   </div>
+  </div>
+
+  <div class="lesson-progressbar"><i id="lessonProgressFill"></i></div>
+
+  <div id="tasksContainer"><!-- задания рендерятся script.js --></div>
+
+  <div class="lesson-nav">
+   <button class="nav-btn" id="prevLessonBtn">← Предыдущий урок</button>
+   <button class="nav-btn primary" id="nextLessonBtn" disabled>Заверши все задания →</button>
+  </div>
+ </div>
+</main>
+
+<div class="toast" id="toast"></div>
+<script src="script.js"></script>
+<script>
+  // Каждый urokN.html — это копия этого файла с одной изменённой строкой ниже.
+  renderLessonPage(1); // <-- номер урока (1-5)
+</script>
+</body>
+</html>
