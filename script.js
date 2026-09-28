@@ -1,7 +1,6 @@
 /* ===== Freebies AI Training — общая логика =====
-   Прогресс хранится в localStorage, чтобы при перезагрузке страницы
-   не сбрасывался. Позже это же место можно заменить на запрос к api/api.js,
-   когда появится сервер/аккаунты.
+   Прогресс хранится в localStorage. Позже это же место можно
+   заменить на запрос к api/api.js, когда появится сервер/аккаунты.
 */
 
 const TOTAL_LESSONS = 5;
@@ -16,16 +15,14 @@ function notify(msg){
   window.tt=setTimeout(()=>t.classList.remove('show'),2200);
 }
 
-/* ---------- Работа с прогрессом ---------- */
+/* ---------- Работа с прогрессом (localStorage) ---------- */
 function getProgress(){
-  try{
-    return JSON.parse(localStorage.getItem('fat_progress')||'{}');
-  }catch(e){ return {}; }
+  try{ return JSON.parse(localStorage.getItem('fat_progress')||'{}'); }
+  catch(e){ return {}; }
 }
 function saveProgress(p){
   localStorage.setItem('fat_progress', JSON.stringify(p));
 }
-// отмечает задание taskIndex урока lessonId как выполненное
 function markTaskDone(lessonId, taskIndex){
   const p = getProgress();
   if(!p[lessonId]) p[lessonId] = [];
@@ -33,28 +30,22 @@ function markTaskDone(lessonId, taskIndex){
   saveProgress(p);
 }
 function getDoneTasks(lessonId){
-  const p = getProgress();
-  return p[lessonId] || [];
+  return getProgress()[lessonId] || [];
 }
 function isLessonComplete(lessonId, totalTasks){
   return getDoneTasks(lessonId).length >= totalTasks;
 }
-// урок открыт, если это урок 1, либо предыдущий урок пройден полностью
-function isLessonUnlocked(lessonId, lessonsData){
-  if(Number(lessonId) === 1) return true;
-  const prevId = String(Number(lessonId)-1);
-  const prevLesson = lessonsData[prevId];
-  if(!prevLesson) return true;
-  return isLessonComplete(prevId, prevLesson.tasks.length);
-}
 
-/* ---------- Главная страница: рендер карточек ---------- */
+/* ---------- Главная страница: рендер карточек ----------
+   Все уроки кликабельны — блокировки по порядку больше нет,
+   ученик сам выбирает, с чего начать. */
 function renderLessonGrid(){
   const grid = document.getElementById('lessonGrid');
   if(!grid) return;
   fetch('lessons.json').then(r=>r.json()).then(data=>{
     let completedCount = 0;
     let html = '';
+
     for(let id=1; id<=TOTAL_LESSONS; id++){
       const lid = String(id);
       const lesson = data[lid];
@@ -62,17 +53,15 @@ function renderLessonGrid(){
       const total = lesson.tasks.length;
       const done = getDoneTasks(lid).length;
       const pct = Math.round((done/total)*100);
-      const unlocked = isLessonUnlocked(lid, data);
       const complete = isLessonComplete(lid, total);
       if(complete) completedCount++;
 
-      const statusLabel = complete ? 'Пройден' : (unlocked ? 'Доступен' : 'Закрыт');
+      const statusLabel = complete ? '✓ Пройден' : (done>0 ? 'В процессе' : 'Начать');
       const statusClass = complete ? 'done' : '';
-      const cardClass = unlocked ? '' : 'locked';
-      const clickAttr = unlocked ? `onclick="location.href='urok${lid}.html'"` : `onclick="notify('Сначала пройди предыдущий урок')"`;
+      const cardClass = complete ? 'done' : '';
 
       html += `
-      <article class="lesson-card ${cardClass}" ${clickAttr}>
+      <article class="lesson-card ${cardClass}" onclick="location.href='urok${lid}.html'">
         <div class="card-cover ${lesson.cover}">
           <span class="lesson-number">УРОК ${lid}</span>
           <span class="status ${statusClass}">${statusLabel}</span>
@@ -91,7 +80,6 @@ function renderLessonGrid(){
     }
     grid.innerHTML = html;
 
-    // общий прогресс-круг вверху страницы
     const overallPct = Math.round((completedCount/TOTAL_LESSONS)*100);
     const ring = document.getElementById('overallRing');
     const pctLabel = document.getElementById('overallPct');
@@ -102,166 +90,197 @@ function renderLessonGrid(){
   });
 }
 
-/* ---------- Страница урока: рендер заданий ---------- */
+/* ==========================================================
+   Страница урока: задания показываются ПО ОДНОМУ.
+   currentStep — какое задание сейчас видно (можно листать
+   назад к уже пройденным, вперёд — только после выполнения
+   текущего).
+   ========================================================== */
+let _lessonData = null;
+let _lessonId = null;
+let _currentStep = 0;
+
 function renderLessonPage(lessonId){
+  _lessonId = lessonId;
   fetch('lessons.json').then(r=>r.json()).then(data=>{
-    const lesson = data[String(lessonId)];
-    if(!lesson){ notify('Урок не найден'); return; }
+    _lessonData = data[String(lessonId)];
+    if(!_lessonData){ notify('Урок не найден'); return; }
 
-    document.getElementById('lessonTopic').textContent = lesson.topic;
-    document.getElementById('lessonTitle').textContent = lesson.title;
-    document.title = 'Урок ' + lessonId + ' — ' + lesson.title;
+    document.getElementById('lessonTopic').textContent = _lessonData.topic;
+    document.getElementById('lessonTitle').textContent = _lessonData.title;
+    document.title = 'Урок ' + lessonId + ' — ' + _lessonData.title;
 
-    const container = document.getElementById('tasksContainer');
-    let html = '';
+    // начинаем с первого ещё не пройденного задания
+    const done = getDoneTasks(lessonId);
+    let startStep = _lessonData.tasks.findIndex((_, i)=>!done.includes(i));
+    if(startStep === -1) startStep = _lessonData.tasks.length; // всё пройдено → экран завершения
+    _currentStep = startStep;
 
-    lesson.tasks.forEach((task, index)=>{
-      const done = getDoneTasks(lessonId).includes(index);
-      const numClass = done ? 'done' : '';
-      const numContent = done ? '✓' : (index+1);
-
-      if(task.type === 'read'){
-        html += `
-        <div class="task">
-          <div class="task-head">
-            <div class="task-num ${numClass}" id="num-${index}">${numContent}</div>
-            <div class="task-title">${task.title}</div>
-            <div class="task-tag">Теория</div>
-          </div>
-          <div class="task-body">${task.text}</div>
-          ${done ? '' : `<button class="check-btn" onclick="completeRead(${lessonId},${index})">Понятно, дальше →</button>`}
-        </div>`;
-      }
-      else if(task.type === 'fillblank'){
-        // Разбиваем текст по {0}, {1}... на инпуты
-        let textHtml = task.text;
-        task.blanks.forEach((_, bi)=>{
-          textHtml = textHtml.replace('{'+bi+'}', `<input type="text" class="fill-blank" id="blank-${index}-${bi}" ${done?'disabled':''}>`);
-        });
-        html += `
-        <div class="task">
-          <div class="task-head">
-            <div class="task-num ${numClass}" id="num-${index}">${numContent}</div>
-            <div class="task-title">${task.title}</div>
-            <div class="task-tag">Задание</div>
-          </div>
-          <div class="task-body"><p>${textHtml}</p></div>
-          ${done ? '' : `<button class="check-btn" onclick="checkBlanks(${lessonId},${index})">Проверить</button>
-          <div class="task-feedback" id="feedback-${index}"></div>`}
-        </div>`;
-      }
-      else if(task.type === 'practice'){
-        html += `
-        <div class="task">
-          <div class="task-head">
-            <div class="task-num ${numClass}" id="num-${index}">${numContent}</div>
-            <div class="task-title">${task.title}</div>
-            <div class="task-tag practice">Практика</div>
-          </div>
-          <div class="task-body">
-            <p><b>Задание:</b> ${task.prompt}</p>
-            <div class="practice-box">
-              <textarea id="practice-${index}" placeholder="Вставь сюда ответ ИИ или напиши, что получилось..." ${done?'disabled':''}></textarea>
-              <div class="practice-hint">${task.hint}</div>
-            </div>
-          </div>
-          ${done ? '' : `<button class="check-btn" onclick="completePractice(${lessonId},${index})">Готово</button>`}
-        </div>`;
-      }
-      // подставляем сохранённые ответы, если задание уже пройдено
-    });
-
-    container.innerHTML = html;
-    updateLessonProgressBar(lessonId, lesson.tasks.length);
-    setupLessonNav(lessonId, data);
+    renderStepTrack();
+    renderCurrentStep();
   });
 }
 
-/* ---------- Проверка заданий ---------- */
-function completeRead(lessonId, taskIndex){
-  markTaskDone(lessonId, taskIndex);
-  renderLessonPage(lessonId);
-  notify('Отлично! Идём дальше');
+function renderStepTrack(){
+  const track = document.getElementById('stepTrack');
+  const label = document.getElementById('stepLabel');
+  if(!track) return;
+  const done = getDoneTasks(_lessonId);
+  let html = '';
+  _lessonData.tasks.forEach((_, i)=>{
+    const cls = done.includes(i) ? 'done' : (i===_currentStep ? 'current' : '');
+    html += `<div class="step-dot ${cls}" onclick="goToStep(${i})"><i></i></div>`;
+  });
+  track.innerHTML = html;
+
+  if(_currentStep >= _lessonData.tasks.length){
+    label.textContent = 'Урок завершён 🎉';
+  } else {
+    label.textContent = `Шаг ${_currentStep+1} из ${_lessonData.tasks.length}`;
+  }
 }
 
-function checkBlanks(lessonId, taskIndex){
-  fetch('lessons.json').then(r=>r.json()).then(data=>{
-    const task = data[String(lessonId)].tasks[taskIndex];
-    let allCorrect = true;
-    task.blanks.forEach((answer, bi)=>{
-      const input = document.getElementById(`blank-${taskIndex}-${bi}`);
-      const userVal = (input.value||'').trim().toLowerCase();
-      const correctVal = answer.trim().toLowerCase();
-      if(userVal === correctVal){
-        input.classList.add('correct');
-        input.classList.remove('wrong');
-      } else {
-        input.classList.add('wrong');
-        input.classList.remove('correct');
-        allCorrect = false;
-      }
+// переход по шагам: назад — всегда можно; вперёд — только на уже пройденные
+function goToStep(index){
+  const done = getDoneTasks(_lessonId);
+  if(index <= _currentStep || done.includes(index)){
+    _currentStep = index;
+    renderStepTrack();
+    renderCurrentStep();
+  } else {
+    notify('Сначала выполни текущее задание');
+  }
+}
+
+function renderCurrentStep(){
+  const container = document.getElementById('tasksContainer');
+  if(!container) return;
+
+  // все задания пройдены → экран завершения урока
+  if(_currentStep >= _lessonData.tasks.length){
+    container.innerHTML = renderCompleteScreen();
+    return;
+  }
+
+  const task = _lessonData.tasks[_currentStep];
+  const index = _currentStep;
+  const done = getDoneTasks(_lessonId).includes(index);
+  const numClass = done ? 'done' : '';
+  const numContent = done ? '✓' : (index+1);
+  let html = '';
+
+  if(task.type === 'read'){
+    html = `
+    <div class="task">
+      <div class="task-head">
+        <div class="task-num ${numClass}">${numContent}</div>
+        <div class="task-title">${task.title}</div>
+        <div class="task-tag">Теория</div>
+      </div>
+      <div class="task-body">${task.text}</div>
+      <button class="check-btn" onclick="completeRead(${index})">Понятно, дальше →</button>
+    </div>`;
+  }
+  else if(task.type === 'fillblank'){
+    let textHtml = task.text;
+    task.blanks.forEach((_, bi)=>{
+      textHtml = textHtml.replace('{'+bi+'}', `<input type="text" class="fill-blank" id="blank-${bi}" ${done?'disabled':''}>`);
     });
-    const feedback = document.getElementById(`feedback-${taskIndex}`);
-    feedback.classList.add('show');
-    if(allCorrect){
-      feedback.textContent = '✓ Всё верно!';
-      feedback.classList.add('ok'); feedback.classList.remove('no');
-      markTaskDone(lessonId, taskIndex);
-      setTimeout(()=>renderLessonPage(lessonId), 700);
+    html = `
+    <div class="task">
+      <div class="task-head">
+        <div class="task-num ${numClass}">${numContent}</div>
+        <div class="task-title">${task.title}</div>
+        <div class="task-tag">Задание</div>
+      </div>
+      <div class="task-body"><p>${textHtml}</p></div>
+      ${done
+        ? `<button class="check-btn" onclick="goToStep(${index+1})">Дальше →</button>`
+        : `<button class="check-btn" onclick="checkBlanks(${index})">Проверить</button>
+           <div class="task-feedback" id="feedback-box"></div>`}
+    </div>`;
+  }
+  else if(task.type === 'practice'){
+    html = `
+    <div class="task">
+      <div class="task-head">
+        <div class="task-num ${numClass}">${numContent}</div>
+        <div class="task-title">${task.title}</div>
+        <div class="task-tag practice">Практика</div>
+      </div>
+      <div class="task-body">
+        <p><b>Задание:</b> ${task.prompt}</p>
+        <div class="practice-box">
+          <textarea id="practice-input" placeholder="Вставь сюда ответ ИИ или напиши, что получилось..." ${done?'disabled':''}></textarea>
+          <div class="practice-hint">${task.hint}</div>
+        </div>
+      </div>
+      ${done
+        ? `<button class="check-btn" onclick="goToStep(${index+1})">Дальше →</button>`
+        : `<button class="check-btn" onclick="completePractice(${index})">Готово</button>`}
+    </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function renderCompleteScreen(){
+  const nextId = Number(_lessonId) + 1;
+  const hasNext = nextId <= TOTAL_LESSONS;
+  return `
+  <div class="lesson-complete">
+    <div class="big-emoji">🎉</div>
+    <h2>Урок пройден!</h2>
+    <p>Отличная работа — ты закрыл все задания этого урока.</p>
+    <div class="complete-actions">
+      <button class="check-btn" onclick="location.href='main.html'">К списку уроков</button>
+      ${hasNext ? `<button class="check-btn" onclick="location.href='urok${nextId}.html'">Следующий урок →</button>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ---------- Обработка ответов ---------- */
+function completeRead(index){
+  markTaskDone(_lessonId, index);
+  goToStep(index+1);
+  renderStepTrack();
+}
+
+function checkBlanks(index){
+  const task = _lessonData.tasks[index];
+  let allCorrect = true;
+  task.blanks.forEach((answer, bi)=>{
+    const input = document.getElementById(`blank-${bi}`);
+    const userVal = (input.value||'').trim().toLowerCase();
+    const correctVal = answer.trim().toLowerCase();
+    if(userVal === correctVal){
+      input.classList.add('correct'); input.classList.remove('wrong');
     } else {
-      feedback.textContent = 'Не совсем — попробуй ещё раз';
-      feedback.classList.add('no'); feedback.classList.remove('ok');
+      input.classList.add('wrong'); input.classList.remove('correct');
+      allCorrect = false;
     }
   });
+  const feedback = document.getElementById('feedback-box');
+  feedback.classList.add('show');
+  if(allCorrect){
+    feedback.textContent = '✓ Всё верно!';
+    feedback.classList.add('ok'); feedback.classList.remove('no');
+    markTaskDone(_lessonId, index);
+    setTimeout(()=>{ goToStep(index+1); renderStepTrack(); }, 700);
+  } else {
+    feedback.textContent = 'Не совсем — попробуй ещё раз';
+    feedback.classList.add('no'); feedback.classList.remove('ok');
+  }
 }
 
-function completePractice(lessonId, taskIndex){
-  const textarea = document.getElementById(`practice-${taskIndex}`);
+function completePractice(index){
+  const textarea = document.getElementById('practice-input');
   if(!textarea.value.trim()){
     notify('Сначала впиши, что получилось');
     return;
   }
-  markTaskDone(lessonId, taskIndex);
-  renderLessonPage(lessonId);
+  markTaskDone(_lessonId, index);
+  goToStep(index+1);
+  renderStepTrack();
   notify('Практика засчитана! 🎉');
-}
-
-/* ---------- Прогресс-бар и навигация урока ---------- */
-function updateLessonProgressBar(lessonId, total){
-  const done = getDoneTasks(lessonId).length;
-  const pct = Math.round((done/total)*100);
-  const bar = document.getElementById('lessonProgressFill');
-  if(bar) bar.style.setProperty('--w', pct+'%');
-}
-
-function setupLessonNav(lessonId, data){
-  const prevBtn = document.getElementById('prevLessonBtn');
-  const nextBtn = document.getElementById('nextLessonBtn');
-  const id = Number(lessonId);
-
-  if(prevBtn){
-    if(id > 1){
-      prevBtn.disabled = false;
-      prevBtn.onclick = ()=> location.href = 'urok'+(id-1)+'.html';
-    } else {
-      prevBtn.disabled = true;
-    }
-  }
-  if(nextBtn){
-    const lesson = data[String(id)];
-    const complete = isLessonComplete(id, lesson.tasks.length);
-    const nextExists = !!data[String(id+1)];
-    if(complete && nextExists){
-      nextBtn.disabled = false;
-      nextBtn.textContent = 'Следующий урок →';
-      nextBtn.onclick = ()=> location.href = 'urok'+(id+1)+'.html';
-    } else if(!nextExists && complete){
-      nextBtn.disabled = false;
-      nextBtn.textContent = 'Все уроки пройдены 🎉';
-      nextBtn.onclick = ()=> location.href = 'main.html';
-    } else {
-      nextBtn.disabled = true;
-      nextBtn.textContent = 'Заверши все задания →';
-    }
-  }
 }

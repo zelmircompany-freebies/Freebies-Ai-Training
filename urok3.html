@@ -25,13 +25,13 @@
    </div>
   </div>
 
-  <div class="lesson-progressbar"><i id="lessonProgressFill"></i></div>
+  <!-- Шаги: точки-индикаторы, клик по пройденному шагу возвращает к нему -->
+  <div class="step-track" id="stepTrack"></div>
+  <div class="step-label" id="stepLabel"></div>
 
-  <div id="tasksContainer"><!-- задания рендерятся script.js --></div>
-
-  <div class="lesson-nav">
-   <button class="nav-btn" id="prevLessonBtn">← Предыдущий урок</button>
-   <button class="nav-btn primary" id="nextLessonBtn" disabled>Заверши все задания →</button>
+  <!-- Показывается только ТЕКУЩЕЕ задание -->
+  <div class="task-stage">
+   <div id="tasksContainer" style="width:100%;max-width:680px"></div>
   </div>
  </div>
 </main>
@@ -39,7 +39,7 @@
 <div class="toast" id="toast"></div>
 <script src="script.js"></script>
 <script>
-  // Каждый urokN.html — это копия этого файла с одной изменённой строкой ниже.
+  // Каждый urokN.html — копия этого файла с одной изменённой строкой ниже.
   renderLessonPage(3); // <-- номер урока (1-5)
 </script>
 </body>
