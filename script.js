@@ -58,7 +58,9 @@ function markTaskDone(lessonId, taskIndex){
 function getDoneTasks(lessonId){ return getProgress()[lessonId] || []; }
 function isLessonComplete(lessonId, totalTasks){ return getDoneTasks(lessonId).length >= totalTasks; }
 
-/* ---------- Главная: карточки уроков (все доступны сразу) ---------- */
+/* ---------- Главная: карточки уроков (все доступны сразу) ----------
+   Квадратные разноцветные карточки в духе Uchi.ru: сверху иконка,
+   ниже — РЕАЛЬНЫЙ заголовок урока, и лейбл "Урок N" под ним. */
 function renderLessonGrid(){
   const grid=document.getElementById('lessonGrid');
   if(!grid) return;
@@ -72,21 +74,17 @@ function renderLessonGrid(){
       const pct=Math.round((done/total)*100);
       const complete=isLessonComplete(lid,total);
       if(complete) completedCount++;
-      const statusLabel=complete?'✓ Пройден':(done>0?'В процессе':'Начать');
+      const statusLabel=complete?'✓':(done>0?done+'/'+total:'');
       html+=`
-      <article class="lesson-card ${complete?'done':''}" onclick="location.href='urok${lid}.html'">
-        <div class="card-cover ${lesson.cover}">
-          <span class="lesson-number">УРОК ${lid}</span>
-          <span class="status ${complete?'done':''}">${statusLabel}</span>
-          <div class="illustration">${lesson.icon}</div>
-        </div>
-        <div class="card-body">
+      <article class="lesson-card ${lesson.cover} ${complete?'done':''}" onclick="location.href='urok.html?id=${lid}'">
+        ${statusLabel?`<span class="status ${complete?'done':''}">${statusLabel}</span>`:'<span></span>'}
+        <div class="card-icon-row"><div class="illustration">${lesson.icon}</div></div>
+        <div class="card-text">
           <h2>${lesson.title}</h2>
-          <div class="topic">${lesson.topic}</div>
-          <div class="card-bottom">
-            <div class="ring" style="--progress:${pct*3.6}deg"><b>${pct}%</b></div>
-            <div class="card-meta">${done} из ${total}<br><strong>заданий пройдено</strong></div>
-            <div class="open-arrow">→</div>
+          <span class="lesson-number">Урок ${lid}</span>
+          <div class="card-progress-row">
+            <div class="mini-ring" style="--progress:${pct*3.6}deg"><b>${pct}%</b></div>
+            <div class="card-meta">${done} из ${total}<br>заданий</div>
           </div>
         </div>
       </article>`;
@@ -116,18 +114,40 @@ function firstUndone(){
   return i===-1 ? _lessonData.tasks.length : i;
 }
 
+// Единый файл урока: номер берём из URL (urok.html?id=3).
+// Если id не передан или не найден — используем урок 1.
+function getLessonIdFromUrl(){
+  const params=new URLSearchParams(window.location.search);
+  return params.get('id') || '1';
+}
+
 function renderLessonPage(lessonId){
-  _lessonId=lessonId;
+  _lessonId = String(lessonId || getLessonIdFromUrl());
   fetch('lessons.json').then(r=>r.json()).then(data=>{
-    _lessonData=data[String(lessonId)];
+    _lessonData=data[_lessonId];
     if(!_lessonData){ notify('Урок не найден'); return; }
     document.getElementById('lessonTopic').textContent=_lessonData.topic;
     document.getElementById('lessonTitle').textContent=_lessonData.title;
-    document.title='Урок '+lessonId+' — '+_lessonData.title;
+    document.title='Урок '+_lessonId+' — '+_lessonData.title;
     _currentStep=firstUndone();
     renderStepTrack();
     renderCurrentStep();
+    renderLessonSideNav(data);
   });
+}
+
+// Кнопки "предыдущий/следующий урок" внизу страницы, если есть в разметке
+function renderLessonSideNav(data){
+  const nav=document.getElementById('lessonSideNav');
+  if(!nav) return;
+  const id=Number(_lessonId);
+  const prevId=id-1, nextId=id+1;
+  const prevOk=data[String(prevId)];
+  const nextOk=data[String(nextId)];
+  nav.innerHTML=`
+    ${prevOk?`<button class="nav-btn" onclick="location.href='urok.html?id=${prevId}'">← Урок ${prevId}</button>`:'<span></span>'}
+    ${nextOk?`<button class="nav-btn" onclick="location.href='urok.html?id=${nextId}'">Урок ${nextId} →</button>`:'<span></span>'}
+  `;
 }
 
 function renderStepTrack(){
@@ -185,7 +205,7 @@ function renderCompleteScreen(){
     <p>Отличная работа — ты закрыл все задания этого урока.</p>
     <div class="complete-actions">
       <button class="check-btn" onclick="location.href='main.html'">К списку уроков</button>
-      ${hasNext?`<button class="check-btn" onclick="location.href='urok${nextId}.html'">Следующий урок →</button>`:''}
+      ${hasNext?`<button class="check-btn" onclick="location.href='urok.html?id=${nextId}'">Следующий урок →</button>`:''}
     </div>
   </div>`;
 }
@@ -447,20 +467,66 @@ function checkOrder(index){
   else showFeedback(false,'Красные пункты стоят не на своём месте — нажми на них, чтобы вернуть, и попробуй ещё');
 }
 
-/* ==================== Тип: practice ==================== */
+/* ==================== Тип: practice (интерфейс чата с ИИ) ====================
+   Пока без реального API: первое сообщение бота — задание практики,
+   ученик печатает промпт как в настоящем чате. Задание засчитывается,
+   когда он отправил хотя бы одно сообщение. Когда подключится
+   api/api.js, здесь достаточно заменить botReply() на реальный запрос. */
 function renderPractice(index,task){
+  _state={sentCount:0};
   const body=`
-    <p><b>Задание:</b> ${task.prompt}</p>
-    <div class="practice-box">
-      <textarea id="practice-input" placeholder="Вставь сюда ответ ИИ или напиши, что получилось..."></textarea>
-      <div class="practice-hint">${task.hint}</div>
-    </div>`;
-  return shell(index,task,'Практика','practice',body,footer(index,'Готово'));
+    <div class="chat-shell">
+      <div class="chat-header">
+        <div class="chat-avatar">🤖</div>
+        <div>
+          <div class="chat-name">Freebies AI</div>
+          <div class="chat-status"><span class="dot"></span>онлайн</div>
+        </div>
+      </div>
+      <div class="chat-window" id="chatWindow">
+        <div class="msg bot">${task.prompt}</div>
+      </div>
+      <div class="chat-input-row">
+        <textarea id="chatInput" rows="1" placeholder="Напиши сообщение..." onkeydown="handleChatKey(event)"></textarea>
+        <button class="chat-send" id="chatSend" onclick="sendChatMessage(${index})">➤</button>
+      </div>
+    </div>
+    <div class="practice-hint">${task.hint}</div>`;
+  return shell(index,task,'Практика','practice',body,footer(index,null));
 }
-function checkPractice(index){
-  const t=document.getElementById('practice-input');
-  if(!t.value.trim()){ notify('Сначала впиши, что получилось'); return; }
-  completeTask(index,'✓ Практика засчитана! 🎉');
+
+function handleChatKey(e){
+  if(e.key==='Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendChatMessage(_currentStep);
+  }
+}
+
+function sendChatMessage(index){
+  const input=document.getElementById('chatInput');
+  const text=(input.value||'').trim();
+  if(!text) return;
+  const win=document.getElementById('chatWindow');
+
+  win.insertAdjacentHTML('beforeend', `<div class="msg user">${esc(text)}</div>`);
+  input.value='';
+  win.scrollTop=win.scrollHeight;
+
+  // индикатор "печатает..." — заглушка до подключения реального API
+  win.insertAdjacentHTML('beforeend', `<div class="msg bot typing" id="typingIndicator"><span></span><span></span><span></span></div>`);
+  win.scrollTop=win.scrollHeight;
+
+  setTimeout(()=>{
+    const typing=document.getElementById('typingIndicator');
+    if(typing) typing.remove();
+    win.insertAdjacentHTML('beforeend', `<div class="msg bot">Пока это демо-чат без настоящего ИИ — но когда он подключится, здесь появится настоящий ответ 🙂</div>`);
+    win.scrollTop=win.scrollHeight;
+  }, 700);
+
+  _state.sentCount++;
+  if(_state.sentCount===1){
+    completeTask(index,'✓ Практика засчитана! 🎉');
+  }
 }
 
 /* ---------- Реестры типов (в конце файла: функции уже объявлены) ---------- */
@@ -471,6 +537,7 @@ const RENDERERS={
 };
 const CHECKERS={
   fillchoice:checkFillChoice, quiz:checkQuiz, truefalse:checkBinary,
-  sort:checkBinary, order:checkOrder, practice:checkPractice
+  sort:checkBinary, order:checkOrder
+  /* practice не проверяется кнопкой — завершается отправкой сообщения в чат */
 };
 const AFTER={ order:drawOrder };

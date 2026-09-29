@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Freebies AI Training — Уроки</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="top-banner">
+ <div class="banner-inner">
+  <div class="banner-title">НОВЫЙ ФОРМАТ ОБУЧЕНИЯ<span>Учись, практикуйся, создавай проекты с AI</span></div>
+  <div class="banner-art">✦ ◉ ✦</div>
+  <button class="banner-btn" onclick="notify('Подробнее скоро')">Подробнее</button>
+ </div>
+</div>
+<header class="header">
+ <div class="container header-inner">
+  <a class="logo" href="index.html"><span class="logo-mark">✦</span><span>Freebies Ai<br><span class="logo-orange">Training</span></span></a>
+  <nav class="nav"><a href="index.html">Главная</a><a class="active" href="main.html">Уроки</a><a href="#extras">Функции</a><a href="#about">О нас</a><a href="#faq">FAQ</a></nav>
+  <div class="profile"><span class="coin">🪙 743</span><button class="login" onclick="notify('Добро пожаловать!')">Войти</button><button class="menu">☰</button></div>
+ </div>
+</header>
+
+<main class="page" id="lessons">
+ <div class="container">
+  <div class="welcome">
+   <div><h1>Мои уроки</h1><p>Проходи карточки по порядку и открывай новые возможности AI.</p></div>
+   <div class="progress-box"><div class="progress-ring" id="overallRing"><b id="overallPct">0%</b></div><span><b id="overallText">0 из 5</b><br>уроков пройдено</span></div>
+  </div>
+  <div class="tabs">
+   <button class="tab active">Все уроки</button><button class="tab">Начало</button><button class="tab">Инструменты</button><button class="tab">Контент</button><button class="tab">Практика</button>
+  </div>
+
+  <section class="lesson-grid" id="lessonGrid">
+   <!-- карточки генерируются в script.js на основе lessons.json + прогресса -->
+  </section>
+
+  <h2 class="extra-title" id="extras">Дополнительные возможности</h2>
+  <section class="extra-grid">
+   <div class="extra one"><h3>🎁 Бонусные материалы</h3><p>Чек-листы, шаблоны, промпты и полезные ссылки для каждого урока.</p><button onclick="notify('Бонусы открываются после урока')">Открыть →</button><div class="extra-icon">✦</div></div>
+   <div class="extra two"><h3>🏆 Сертификат</h3><p>Пройди пять уроков и подтверди свои новые навыки.</p><button onclick="notify('Сертификат будет доступен после курса')">Подробнее →</button><div class="extra-icon">★</div></div>
+   <div class="extra three" id="about"><h3>👥 AI-сообщество</h3><p>Общайся, задавай вопросы и делись своими AI-проектами.</p><button onclick="notify('Добро пожаловать в сообщество!')">Присоединиться →</button><div class="extra-icon">●</div></div>
+  </section>
+ </div>
+</main>
+
+<footer class="footer" id="faq"><div class="container footer-inner">
+ <div class="logo"><span class="logo-mark">✦</span><span>Freebies Ai<br><span class="logo-orange">Training</span></span></div>
+ <div class="footer-links"><a href="index.html">Главная</a><a href="main.html">Уроки</a><a href="#extras">Функции</a><a href="#about">О нас</a><a href="#faq">FAQ</a></div>
+ <small>© 2026 Freebies Ai Training</small>
+</div></footer>
+<div class="toast" id="toast"></div>
+<script src="script.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');notify('Фильтр: '+b.textContent)});
+renderLessonGrid();
+</script>
+</body>
+</html>
