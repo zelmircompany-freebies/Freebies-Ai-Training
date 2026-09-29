@@ -13,7 +13,7 @@
      practice    — практическое задание с полем для ответа
 */
 
-const TOTAL_LESSONS = 5;
+const TOTAL_LESSONS = 20;
 const STORAGE_KEY = 'fat_progress_v2';
 
 /* ---------- Утилиты ---------- */
