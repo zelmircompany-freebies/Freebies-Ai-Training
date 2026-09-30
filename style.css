@@ -1,5 +1,5 @@
 :root{
- --orange:#ff7900;--orange2:#ff9f1c;--yellow:#ffd84f;--bg:#fff9f0;
+ --orange:#ff7900;--orange2:#ff9f1c;--yellow:#ffd84f;--bg:#ffffff;
  --ink:#2b2440;--muted:#8a84a0;--white:#fff;--line:#f0e4d0;
  --green:#2ecc8f;--blue:#5b8def;--pink:#ff6b9d;--purple:#9b6bff;
  --shadow-soft:0 8px 24px rgba(255,121,0,.12);
@@ -282,3 +282,82 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 .chat-send:disabled{opacity:.5;cursor:not-allowed}
 
 .practice-hint{font-size:12.5px;color:var(--muted);margin-top:10px;font-weight:600}
+
+/* ===== Защита картинок от скачивания/копирования ===== */
+.no-download{
+  -webkit-user-select:none;user-select:none;
+  -webkit-user-drag:none;-khtml-user-drag:none;-moz-user-drag:none;-o-user-drag:none;user-drag:none;
+  pointer-events:auto;
+}
+img.no-download{ -webkit-touch-callout:none; }
+
+/* ===== Картинки на карточках уроков ===== */
+.card-cover-img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;z-index:1;opacity:.55;mix-blend-mode:overlay}
+.card-icon-row{position:relative;z-index:2;min-height:42px}
+
+/* ===== Робот-помощник рядом с заданием (десктоп/планшет) ===== */
+.task-stage{display:flex;justify-content:center;align-items:flex-start;gap:24px;position:relative}
+.robot-buddy{width:120px;height:auto;position:sticky;top:100px;flex-shrink:0;animation:robot-bob 3s ease-in-out infinite}
+@keyframes robot-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@media(max-width:1000px){ .robot-buddy{display:none} }
+
+/* ===== Робот на весь экран (завершение урока) ===== */
+.robot-fullscreen{
+  position:fixed;inset:0;background:rgba(255,255,255,.92);z-index:200;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  animation:pop-in .3s ease;
+}
+.robot-fullscreen img{max-width:min(70vw,420px);max-height:70vh;filter:drop-shadow(0 20px 40px rgba(255,121,0,.25))}
+
+/* ===== Боковая панель теории ===== */
+.theory-btn{background:#fff;border:2px solid #ffe9c7}
+.theory-btn img{width:20px;height:20px}
+.theory-panel{
+  position:fixed;top:0;right:-420px;width:min(400px,90vw);height:100vh;background:#fff;
+  box-shadow:-8px 0 30px rgba(0,0,0,.12);z-index:150;transition:right .25s ease;
+  display:flex;flex-direction:column;
+}
+.theory-panel.open{right:0}
+.theory-panel-head{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:2px solid #ffe9c7;font-weight:900;font-size:16px}
+.theory-close{background:#fff3de;border:0;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer;color:var(--orange)}
+.theory-panel-body{padding:20px;overflow-y:auto;font-size:14.5px;line-height:1.65;color:#4a4460}
+.theory-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:140;display:none}
+.theory-panel.open ~ .theory-panel-overlay{display:block}
+
+/* ===== Генерация картинок (imagegen1 / imagegen3) ===== */
+.imggen-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:14px}
+.imggen-card{border:2px solid #ffe9c7;border-radius:18px;padding:12px;text-align:center}
+.imggen-label{font-weight:800;font-size:13px;margin-bottom:10px;color:var(--ink)}
+.imggen-canvas{min-height:150px;border-radius:14px;background:#fff8ec;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.imggen-canvas.single{min-height:260px;margin-top:14px}
+.imggen-result{width:100%;height:100%;object-fit:cover;border-radius:14px}
+.imggen-btn{background:linear-gradient(135deg,#ffb020,#ff7900);color:#fff;border:0;border-radius:99px;padding:10px 18px;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 3px 0 #d9670a}
+.imggen-loading{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);font-weight:700}
+.imggen-error{font-size:12.5px;color:#e5484d;font-weight:700;padding:10px}
+.imggen-single{display:flex;flex-direction:column;gap:10px}
+.imggen-prompt-input{width:100%;border:2px solid #ffe9c7;border-radius:14px;padding:12px 14px;font-family:inherit;font-size:13.5px;resize:vertical}
+.spinner{width:28px;height:28px;border:3px solid #ffe9c7;border-top-color:var(--orange);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ===== Алиса (урок 6) ===== */
+/* использует существующие .check-btn, .practice-box, .practice-hint */
+
+/* ===== Угадай голос (voiceguess) ===== */
+.voice-round{display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
+.voice-person{display:flex;flex-direction:column;align-items:center;gap:8px}
+.voice-photo{width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid #ffe9c7}
+.voice-person-name{font-weight:900;font-size:14px}
+.voice-clips{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;width:100%}
+.voice-clip{display:flex;flex-direction:column;gap:8px;align-items:center;background:#fff8ec;border:2px solid #ffe9c7;border-radius:16px;padding:14px;flex:1;min-width:200px}
+.voice-clip audio{width:100%}
+
+/* ===== Кликабельные слова (wordcheck) ===== */
+.wc-answer{font-size:14.5px;line-height:1.9;padding:14px;background:#fff8ec;border-radius:14px;border:2px solid #ffe9c7}
+.wc-word{cursor:pointer;padding:1px 2px;border-radius:4px;transition:.1s}
+.wc-word:hover{background:#ffe0ae}
+.wc-word.marked{background:#ffb3bb;text-decoration:underline;text-decoration-color:#e5484d;text-decoration-thickness:2px}
+
+/* ===== Дорожка (path, урок 1) — визуальный вариант order ===== */
+.path-slots{position:relative}
+.path-slots .order-item{position:relative}
+.path-slots .order-item:not(:last-child):after{content:"↓";position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);color:#ffcf87;font-weight:900;font-size:14px;z-index:2}

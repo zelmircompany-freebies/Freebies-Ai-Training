@@ -16,6 +16,50 @@
 const TOTAL_LESSONS = 20;
 const STORAGE_KEY = 'fat_progress_v2';
 
+/* ===== Робот-помощник (Mood) =====
+   На первом задании урока — случайное настроение (01-03).
+   На остальных заданиях — по числу ошибок, допущенных при
+   решении текущего задания: 0 ошибок → Mood01, 1 → Mood02,
+   2 → Mood03, 3 → Mood04, 4+ (или "везде ошибался") → Mood05.
+   После последнего задания (практики) — Mood00 на весь экран. */
+let _mistakeCount = 0;
+
+function robotMoodForMistakes(count){
+  if(count<=0) return 'Mood01';
+  if(count===1) return 'Mood02';
+  if(count===2) return 'Mood03';
+  if(count===3) return 'Mood04';
+  return 'Mood05';
+}
+function randomFirstMood(){
+  const moods=['Mood01','Mood02','Mood03'];
+  return moods[Math.floor(Math.random()*moods.length)];
+}
+function showRobot(mood){
+  const el=document.getElementById('robotBuddy');
+  if(!el) return;
+  el.src='img/'+mood+'.png';
+  el.style.display='';
+}
+function hideRobot(){
+  const el=document.getElementById('robotBuddy');
+  if(el) el.style.display='none';
+}
+function registerMistake(){
+  _mistakeCount++;
+  showRobot(robotMoodForMistakes(_mistakeCount));
+}
+function showFullscreenRobot(){
+  const el=document.getElementById('robotFullscreen');
+  if(!el) return;
+  el.style.display='flex';
+  el.querySelector('img').src='img/Mood00.png';
+}
+function hideFullscreenRobot(){
+  const el=document.getElementById('robotFullscreen');
+  if(el) el.style.display='none';
+}
+
 /* ---------- Утилиты ---------- */
 function notify(msg){
   const t=document.getElementById('toast');
@@ -75,10 +119,15 @@ function renderLessonGrid(){
       const complete=isLessonComplete(lid,total);
       if(complete) completedCount++;
       const statusLabel=complete?'✓':(done>0?done+'/'+total:'');
+      // У уроков 1-19 есть картинка img/uN.png; урок 20 — только эмодзи-иконка
+      const hasImage=id<20;
+      const iconHtml=hasImage
+        ? `<img src="img/u${lid}.png" class="card-cover-img no-download" oncontextmenu="return false" draggable="false" alt="${esc(lesson.title)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'illustration',textContent:'${lesson.icon}'}))">`
+        : `<div class="illustration">${lesson.icon}</div>`;
       html+=`
       <article class="lesson-card ${lesson.cover} ${complete?'done':''}" onclick="location.href='urok.html?id=${lid}'">
         ${statusLabel?`<span class="status ${complete?'done':''}">${statusLabel}</span>`:'<span></span>'}
-        <div class="card-icon-row"><div class="illustration">${lesson.icon}</div></div>
+        <div class="card-icon-row">${iconHtml}</div>
         <div class="card-text">
           <h2>${lesson.title}</h2>
           <span class="lesson-number">Урок ${lid}</span>
@@ -180,10 +229,14 @@ function goToStep(index){
 function renderCurrentStep(){
   const container=document.getElementById('tasksContainer');
   if(!container) return;
+  _mistakeCount=0;
   if(_currentStep>=_lessonData.tasks.length){
     container.innerHTML=renderCompleteScreen();
+    hideRobot();
+    showFullscreenRobot();
     return;
   }
+  hideFullscreenRobot();
   const index=_currentStep, task=_lessonData.tasks[index];
   _state={};
   const render=RENDERERS[task.type];
@@ -193,6 +246,23 @@ function renderCurrentStep(){
   }
   container.innerHTML=render(index,task);
   if(AFTER[task.type]) AFTER[task.type]();
+  // робот: на первом задании — случайное настроение, дальше — по ошибкам (обновляется по ходу решения)
+  if(index===0) showRobot(randomFirstMood());
+  else showRobot(robotMoodForMistakes(0));
+}
+
+/* ---------- Боковая панель теории (кнопка book.png) ---------- */
+function openTheoryPanel(){
+  const panel=document.getElementById('theoryPanel');
+  if(!panel || !_lessonData) return;
+  const readTask=_lessonData.tasks.find(t=>t.type==='read');
+  const body=document.getElementById('theoryPanelBody');
+  body.innerHTML = readTask ? readTask.text : '<p>Для этого урока теория не найдена.</p>';
+  panel.classList.add('open');
+}
+function closeTheoryPanel(){
+  const panel=document.getElementById('theoryPanel');
+  if(panel) panel.classList.remove('open');
 }
 
 function renderCompleteScreen(){
@@ -253,6 +323,7 @@ function completeTask(index,msg){
   const cb=document.getElementById('checkBtn'); if(cb) cb.style.display='none';
   const nb=document.getElementById('nextBtn'); if(nb) nb.style.display='';
   renderStepTrack();
+  showRobot(robotMoodForMistakes(_mistakeCount));
 }
 
 function checkCurrent(){
@@ -303,7 +374,7 @@ function checkFillChoice(index){
     if(!right) ok=false;
   });
   if(ok) completeTask(index,'✓ Всё верно!');
-  else showFeedback(false,'Не совсем — поменяй красные слова и проверь ещё раз');
+  else { registerMistake(); showFeedback(false,'Не совсем — поменяй красные слова и проверь ещё раз'); }
 }
 
 /* ==================== Тип: quiz ==================== */
@@ -330,7 +401,7 @@ function checkQuiz(index,task){
   const right=_state.opts[_state.chosen]===task.answer;
   document.getElementById('qo-'+_state.chosen).classList.add(right?'correct':'wrong');
   if(right) completeTask(index,'✓ Верно! '+(task.explain||''));
-  else showFeedback(false,'Не совсем — подумай ещё и выбери другой вариант');
+  else { registerMistake(); showFeedback(false,'Не совсем — подумай ещё и выбери другой вариант'); }
 }
 
 /* ============ Тип: truefalse и sort (общий «двухкнопочный» рендер) ============ */
@@ -376,6 +447,7 @@ function checkBinary(index){
     _state.rows.forEach((_,ri)=>document.getElementById('bin-'+ri).classList.add('checked'));
     completeTask(index,'✓ Всё верно!');
   } else {
+    registerMistake();
     showFeedback(false,'Есть ошибки — поправь красные пункты и проверь снова');
   }
 }
@@ -416,6 +488,7 @@ function pickMatchRight(i){
     _state.sel=null;
     if(_state.matched===_state.total) completeTask(_currentStep,'✓ Отлично, все пары найдены!');
   } else {
+    registerMistake();
     const el=document.getElementById('mr-'+i);
     el.classList.add('wrong');
     setTimeout(()=>el.classList.remove('wrong'),450);
@@ -464,14 +537,11 @@ function checkOrder(index){
   drawOrder();
   const ok=_state.answer.every((o,pos)=>o.id===pos);
   if(ok) completeTask(index,'✓ Порядок верный!');
-  else showFeedback(false,'Красные пункты стоят не на своём месте — нажми на них, чтобы вернуть, и попробуй ещё');
+  else { registerMistake(); showFeedback(false,'Красные пункты стоят не на своём месте — нажми на них, чтобы вернуть, и попробуй ещё'); }
 }
 
 /* ==================== Тип: practice (интерфейс чата с ИИ) ====================
-   Пока без реального API: первое сообщение бота — задание практики,
-   ученик печатает промпт как в настоящем чате. Задание засчитывается,
-   когда он отправил хотя бы одно сообщение. Когда подключится
-   api/api.js, здесь достаточно заменить botReply() на реальный запрос. */
+   Реальный вызов ИИ через api/client.js → /api/api.js?action=openrouter (Agnes). */
 function renderPractice(index,task){
   _state={sentCount:0};
   const body=`
@@ -491,7 +561,7 @@ function renderPractice(index,task){
         <button class="chat-send" id="chatSend" onclick="sendChatMessage(${index})">➤</button>
       </div>
     </div>
-    <div class="practice-hint">${task.hint}</div>`;
+    <div class="practice-hint">${task.hint||''}</div>`;
   return shell(index,task,'Практика','practice',body,footer(index,null));
 }
 
@@ -502,26 +572,33 @@ function handleChatKey(e){
   }
 }
 
-function sendChatMessage(index){
+async function sendChatMessage(index){
   const input=document.getElementById('chatInput');
   const text=(input.value||'').trim();
   if(!text) return;
   const win=document.getElementById('chatWindow');
+  const sendBtn=document.getElementById('chatSend');
 
   win.insertAdjacentHTML('beforeend', `<div class="msg user">${esc(text)}</div>`);
   input.value='';
   win.scrollTop=win.scrollHeight;
+  if(sendBtn) sendBtn.disabled=true;
 
-  // индикатор "печатает..." — заглушка до подключения реального API
   win.insertAdjacentHTML('beforeend', `<div class="msg bot typing" id="typingIndicator"><span></span><span></span><span></span></div>`);
   win.scrollTop=win.scrollHeight;
 
-  setTimeout(()=>{
-    const typing=document.getElementById('typingIndicator');
-    if(typing) typing.remove();
-    win.insertAdjacentHTML('beforeend', `<div class="msg bot">Пока это демо-чат без настоящего ИИ — но когда он подключится, здесь появится настоящий ответ 🙂</div>`);
-    win.scrollTop=win.scrollHeight;
-  }, 700);
+  let replyText;
+  try{
+    replyText = await generateText(text);
+  }catch(err){
+    replyText = 'Не получилось получить ответ (' + err.message + '). Попробуй ещё раз чуть позже.';
+  }
+
+  const typing=document.getElementById('typingIndicator');
+  if(typing) typing.remove();
+  win.insertAdjacentHTML('beforeend', `<div class="msg bot">${esc(replyText).replace(/\n/g,'<br>')}</div>`);
+  win.scrollTop=win.scrollHeight;
+  if(sendBtn) sendBtn.disabled=false;
 
   _state.sentCount++;
   if(_state.sentCount===1){
@@ -529,15 +606,280 @@ function sendChatMessage(index){
   }
 }
 
+/* ==================== Тип: path (дорожка событий, урок 1) ====================
+   Визуально то же самое, что order, но с подписью "дорожка" — переиспользуем
+   рендер order с иной обёрткой. */
+function renderPath(index,task){
+  const items=task.items.map((t,i)=>({id:i,t}));
+  _state={pool:shuffleDifferent(items),answer:[],checked:false};
+  return shell(index,task,'Дорожка','',
+    `<p class="quiz-q">${task.question}</p>
+     <div class="order-label">Твоя дорожка</div>
+     <div class="order-slots path-slots" id="orderSlots"></div>
+     <div class="order-label">Варианты — нажимай по очереди</div>
+     <div class="order-pool" id="orderPool"></div>`,
+    footer(index,'Проверить'));
+}
+
+/* ==================== Тип: imagegen3 (3 картинки, урок 2) ==================== */
+function renderImageGen3(index,task){
+  _state={done:task.prompts.map(()=>false)};
+  const cards=task.prompts.map((p,i)=>`
+    <div class="imggen-card" id="imggen-${i}">
+      <div class="imggen-label">${esc(p.label)}</div>
+      <div class="imggen-canvas" id="imggen-canvas-${i}">
+        <button type="button" class="imggen-btn" onclick="runImageGen3(${i})">✨ Сгенерировать</button>
+      </div>
+    </div>`).join('');
+  const body=`<p>${task.instruction}</p><div class="imggen-grid">${cards}</div>`;
+  return shell(index,task,'Практика','practice',body,footer(index,null));
+}
+async function runImageGen3(i){
+  const task=_lessonData.tasks[_currentStep];
+  const canvas=document.getElementById('imggen-canvas-'+i);
+  canvas.innerHTML='<div class="imggen-loading"><div class="spinner"></div>Генерирую…</div>';
+  try{
+    const url=await generateImage(task.prompts[i].prompt);
+    canvas.innerHTML=`<img src="${url}" class="imggen-result no-download" oncontextmenu="return false" draggable="false" alt="${esc(task.prompts[i].label)}">`;
+  }catch(err){
+    canvas.innerHTML=`<div class="imggen-error">Не получилось: ${esc(err.message)}<br><button type="button" class="imggen-btn" onclick="runImageGen3(${i})">Попробовать снова</button></div>`;
+    return;
+  }
+  _state.done[i]=true;
+  if(_state.done.every(Boolean)){
+    completeTask(_currentStep,'✓ Все картинки сгенерированы! 🎉');
+  }
+}
+
+/* ==================== Тип: imagegen1 (1 картинка, уроки 3, 7, 8) ==================== */
+function renderImageGen1(index,task){
+  _state={done:false};
+  const body=`
+    <p>${task.instruction}</p>
+    <div class="imggen-single">
+      <textarea id="imggenPrompt" rows="2" class="imggen-prompt-input">${esc(task.defaultPrompt||'')}</textarea>
+      <button type="button" class="check-btn" onclick="runImageGen1(${index})">✨ Сгенерировать</button>
+      <div class="imggen-canvas single" id="imggenCanvasSingle"></div>
+    </div>`;
+  return shell(index,task,'Практика','practice',body,footer(index,null));
+}
+async function runImageGen1(index){
+  const canvas=document.getElementById('imggenCanvasSingle');
+  const promptText=(document.getElementById('imggenPrompt').value||'').trim();
+  if(!promptText){ notify('Напиши, что генерировать'); return; }
+  canvas.innerHTML='<div class="imggen-loading"><div class="spinner"></div>Генерирую…</div>';
+  try{
+    const url=await generateImage(promptText);
+    canvas.innerHTML=`<img src="${url}" class="imggen-result no-download" oncontextmenu="return false" draggable="false" alt="результат генерации">`;
+  }catch(err){
+    canvas.innerHTML=`<div class="imggen-error">Не получилось: ${esc(err.message)}</div>`;
+    return;
+  }
+  completeTask(index,'✓ Картинка готова! 🎉');
+}
+
+/* ==================== Тип: alicecheck (урок 6) ==================== */
+function renderAliceCheck(index,task){
+  const body=`
+    <p>${task.instruction}</p>
+    <a class="check-btn" href="${task.aliceUrl}" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;text-align:center">Открыть Алису АИ ↗</a>
+    <div class="practice-box" style="margin-top:14px">
+      <textarea id="aliceAnswer" placeholder="Вставь сюда ответ Алисы..."></textarea>
+    </div>`;
+  return shell(index,task,'Практика','practice',body,footer(index,'Готово'));
+}
+function checkAliceCheck(index){
+  const t=document.getElementById('aliceAnswer');
+  if(!t.value.trim()){ notify('Сначала вставь ответ Алисы'); return; }
+  completeTask(index,'✓ Практика засчитана! 🎉');
+}
+
+/* ==================== Тип: voiceguess (урок 10, 3 раунда) ==================== */
+function renderVoiceGuess(index,task){
+  _state={round:0, rounds:task.rounds.map(r=>{
+    // перемешиваем клипы в раунде местами каждый раз заново
+    const clips=shuffle(r.clips);
+    return {...r, clips, answered:false};
+  })};
+  const body=`<p>${task.instruction}</p><div id="voiceRoundStage"></div>`;
+  return shell(index,task,'Практика','practice',body,footer(index,null));
+}
+function drawVoiceRound(){
+  const stage=document.getElementById('voiceRoundStage');
+  if(!stage) return;
+  const total=_state.rounds.length;
+  if(_state.round>=total){
+    stage.innerHTML='<div class="task-feedback show ok">✓ Все раунды пройдены! 🎉</div>';
+    return;
+  }
+  const r=_state.rounds[_state.round];
+  const askText=r.askReal ? 'Какая запись настоящая?' : 'Какая запись сгенерирована ИИ?';
+  const clipsHtml=r.clips.map((c,ci)=>`
+    <div class="voice-clip">
+      <audio controls src="${c.file}" class="no-download" controlsList="nodownload"></audio>
+      <button type="button" class="check-btn" onclick="pickVoice(${ci})">Это она</button>
+    </div>`).join('');
+  stage.innerHTML=`
+    <div class="voice-round">
+      <div class="voice-person">
+        <img src="${r.photo}" class="voice-photo no-download" oncontextmenu="return false" draggable="false" alt="${esc(r.person)}">
+        <div class="voice-person-name">${esc(r.person)}</div>
+      </div>
+      <div class="quiz-q">Раунд ${_state.round+1} из ${total}: ${askText}</div>
+      ${r.note?`<div class="practice-hint">${esc(r.note)}</div>`:''}
+      <div class="voice-clips">${clipsHtml}</div>
+    </div>`;
+}
+function pickVoice(clipIndex){
+  const r=_state.rounds[_state.round];
+  if(r.answered) return;
+  r.answered=true;
+  const clip=r.clips[clipIndex];
+  // "правильно" = совпадает с тем, что спросили (реальная или ИИ)
+  const wantedIsAI = !r.askReal;
+  const correct = clip.isAI === wantedIsAI || r.note; // раунд с note — всегда верно (обе ИИ)
+  if(!correct) registerMistake();
+  showFeedback(!!correct, correct?'✓ Верно!':'Не в этот раз — но идём дальше');
+  setTimeout(()=>{
+    _state.round++;
+    drawVoiceRound();
+    if(_state.round>=_state.rounds.length){
+      completeTask(_currentStep,'✓ Практика завершена! 🎉');
+    }
+  }, 900);
+}
+
+/* ==================== Тип: wordcheck (уроки 13, 17 — кликабельные слова) ====================
+   mode: "checkbrowser" — ИИ сразу пишет ответ (автопромпт), ребёнок кликает неверные слова
+         "checkAI"       — ребёнок сам пишет вопрос, затем кликает неверные слова в ответе */
+function renderWordCheck(index,task){
+  _state={marked:new Set(), gotReply:false};
+  if(task.mode==='checkbrowser'){
+    const body=`
+      <p>${task.instruction}</p>
+      <div id="wordcheckStage"><button type="button" class="check-btn" onclick="fetchWordCheckAuto(${index})">Спросить у ИИ</button></div>`;
+    return shell(index,task,'Практика','practice',body,footer(index,null));
+  } else {
+    const body=`
+      <p>${task.instruction}</p>
+      <div class="practice-box">
+        <textarea id="wordcheckQuestion" placeholder="${esc(task.placeholder||'Напиши свой вопрос...')}"></textarea>
+      </div>
+      <button type="button" class="check-btn" onclick="fetchWordCheckAsk(${index})">Отправить</button>
+      <div id="wordcheckStage"></div>
+      <div class="practice-hint">${task.hint||''}</div>`;
+    return shell(index,task,'Практика','practice',body,footer(index,null));
+  }
+}
+async function fetchWordCheckAuto(index){
+  const task=_lessonData.tasks[index];
+  const stage=document.getElementById('wordcheckStage');
+  stage.innerHTML='<div class="imggen-loading"><div class="spinner"></div>ИИ печатает…</div>';
+  let text;
+  try{ text=await generateText(task.autoPrompt); }
+  catch(err){ stage.innerHTML='<div class="imggen-error">Не получилось: '+esc(err.message)+'</div>'; return; }
+  drawWordCheckReply(text, task);
+}
+async function fetchWordCheckAsk(index){
+  const task=_lessonData.tasks[index];
+  const q=(document.getElementById('wordcheckQuestion').value||'').trim();
+  if(!q){ notify('Сначала напиши вопрос'); return; }
+  const stage=document.getElementById('wordcheckStage');
+  stage.innerHTML='<div class="imggen-loading"><div class="spinner"></div>ИИ печатает…</div>';
+  let text;
+  try{ text=await generateText(q); }
+  catch(err){ stage.innerHTML='<div class="imggen-error">Не получилось: '+esc(err.message)+'</div>'; return; }
+  drawWordCheckReply(text, task);
+}
+function drawWordCheckReply(text, task){
+  const stage=document.getElementById('wordcheckStage');
+  _state.gotReply=true;
+  const words=text.split(/(\s+)/); // сохраняем пробелы как отдельные токены
+  const html=words.map((w,i)=>{
+    if(/^\s+$/.test(w) || !w) return w;
+    return `<span class="wc-word" data-i="${i}" onclick="toggleWordMark(${i})">${esc(w)}</span>`;
+  }).join('');
+  stage.innerHTML=`
+    <div class="wc-answer">${html}</div>
+    <div class="practice-hint">${task.mode==='checkbrowser'?(task.hint||''):''}</div>
+    <button type="button" class="check-btn secondary" style="margin-top:12px" onclick="finishWordCheck(${_currentStep})">Готово, я проверил</button>`;
+}
+function toggleWordMark(i){
+  const el=document.querySelector(`.wc-word[data-i="${i}"]`);
+  if(!el) return;
+  if(_state.marked.has(i)){ _state.marked.delete(i); el.classList.remove('marked'); }
+  else { _state.marked.add(i); el.classList.add('marked'); }
+}
+function finishWordCheck(index){
+  if(!_state.gotReply){ notify('Сначала получи ответ от ИИ'); return; }
+  completeTask(index,'✓ Практика засчитана! 🎉');
+}
+
+/* ==================== Тип: trueFalseAI (урок 14) ==================== */
+function renderTrueFalseAI(index,task){
+  const body=`
+    <p>${task.instruction}</p>
+    <div class="practice-box">
+      <textarea id="tfaiInput" rows="3" placeholder="${esc(task.placeholder||'')}"></textarea>
+    </div>
+    <button type="button" class="check-btn" onclick="runTrueFalseAI(${index})">Отправить на проверку</button>
+    <div id="tfaiStage"></div>`;
+  return shell(index,task,'Практика','practice',body,footer(index,null));
+}
+async function runTrueFalseAI(index){
+  const input=document.getElementById('tfaiInput');
+  const text=(input.value||'').trim();
+  if(!text){ notify('Сначала напиши 3 примера'); return; }
+  const stage=document.getElementById('tfaiStage');
+  stage.innerHTML='<div class="imggen-loading"><div class="spinner"></div>ИИ проверяет…</div>';
+  const prompt='Пользователь назвал примеры суперприложений: "'+text+'". Для каждого примера коротко (1 фраза) напиши, действительно ли это похоже на суперприложение, или ты не уверен. Ответь дружелюбно и просто, для школьника.';
+  let reply;
+  try{ reply=await generateText(prompt); }
+  catch(err){ reply='Не получилось проверить через ИИ, но это не страшно — задание всё равно засчитано.'; }
+  stage.innerHTML=`<div class="msg bot" style="max-width:100%">${esc(reply).replace(/\n/g,'<br>')}</div>`;
+  // задание засчитывается в любом случае, как и просили
+  completeTask(index,'✓ Практика засчитана! 🎉');
+}
+
+/* ==================== Тип: retell (урок 15) ==================== */
+function renderRetell(index,task){
+  const body=`
+    <p>${task.instruction}</p>
+    <div class="practice-box">
+      <textarea id="retellInput" rows="4" placeholder="${esc(task.placeholder||'')}"></textarea>
+    </div>
+    <button type="button" class="check-btn" onclick="runRetell(${index})">Отправить ИИ на пересказ</button>
+    <div id="retellStage"></div>`;
+  return shell(index,task,'Практика','practice',body,footer(index,null));
+}
+async function runRetell(index){
+  const input=document.getElementById('retellInput');
+  const text=(input.value||'').trim();
+  if(!text){ notify('Сначала вставь текст про фотосинтез'); return; }
+  const stage=document.getElementById('retellStage');
+  stage.innerHTML='<div class="imggen-loading"><div class="spinner"></div>ИИ пересказывает…</div>';
+  const prompt='Перескажи своими словами простым языком для школьника следующий текст, в 2-3 предложениях: "'+text+'"';
+  let reply;
+  try{ reply=await generateText(prompt); }
+  catch(err){ stage.innerHTML='<div class="imggen-error">Не получилось: '+esc(err.message)+'</div>'; return; }
+  stage.innerHTML=`<div class="msg bot" style="max-width:100%">${esc(reply).replace(/\n/g,'<br>')}</div>`;
+  completeTask(index,'✓ Практика засчитана! 🎉');
+}
+
 /* ---------- Реестры типов (в конце файла: функции уже объявлены) ---------- */
 const RENDERERS={
   read:renderRead, fillchoice:renderFillChoice, quiz:renderQuiz,
   truefalse:renderTrueFalse, match:renderMatch, order:renderOrder,
-  sort:renderSort, practice:renderPractice
+  sort:renderSort, practice:renderPractice,
+  path:renderPath, imagegen3:renderImageGen3, imagegen1:renderImageGen1,
+  alicecheck:renderAliceCheck, voiceguess:renderVoiceGuess,
+  wordcheck:renderWordCheck, trueFalseAI:renderTrueFalseAI, retell:renderRetell
 };
 const CHECKERS={
   fillchoice:checkFillChoice, quiz:checkQuiz, truefalse:checkBinary,
-  sort:checkBinary, order:checkOrder
-  /* practice не проверяется кнопкой — завершается отправкой сообщения в чат */
+  sort:checkBinary, order:checkOrder, path:checkOrder,
+  alicecheck:checkAliceCheck
+  /* practice, imagegen*, voiceguess, wordcheck, trueFalseAI, retell —
+     завершаются изнутри своего рендера, не через общую кнопку "Проверить" */
 };
-const AFTER={ order:drawOrder };
+const AFTER={ order:drawOrder, path:drawOrder, voiceguess:drawVoiceRound };

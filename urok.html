@@ -11,7 +11,10 @@
  <div class="container header-inner">
   <a class="logo" href="index.html"><span class="logo-mark">✦</span><span>Freebies Ai<br><span class="logo-orange">Training</span></span></a>
   <nav class="nav"><a href="index.html">Главная</a><a class="active" href="main.html">Уроки</a><a href="main.html#extras">Функции</a><a href="main.html#about">О нас</a><a href="main.html#faq">FAQ</a></nav>
-  <div class="profile"><span class="coin">🪙 743</span><button class="login" onclick="notify('Добро пожаловать!')">Войти</button><button class="menu">☰</button></div>
+  <div class="profile">
+   <button class="icon-pill theory-btn" onclick="openTheoryPanel()" title="Теория урока"><img src="img/book.png" class="no-download" oncontextmenu="return false" draggable="false" alt="Теория"></button>
+   <span class="coin">🪙 743</span><button class="login" onclick="notify('Добро пожаловать!')">Войти</button><button class="menu">☰</button>
+  </div>
  </div>
 </header>
 
@@ -29,9 +32,10 @@
   <div class="step-track" id="stepTrack"></div>
   <div class="step-label" id="stepLabel"></div>
 
-  <!-- Показывается только ТЕКУЩЕЕ задание -->
+  <!-- Показывается только ТЕКУЩЕЕ задание, справа — робот-помощник (только на широких экранах) -->
   <div class="task-stage">
    <div id="tasksContainer" style="width:100%;max-width:680px"></div>
+   <img id="robotBuddy" class="robot-buddy no-download" src="img/Mood01.png" oncontextmenu="return false" draggable="false" alt="Помощник" style="display:none">
   </div>
 
   <!-- Переход к соседним урокам -->
@@ -39,7 +43,23 @@
  </div>
 </main>
 
+<!-- Полноэкранный робот после завершения всех заданий урока -->
+<div id="robotFullscreen" class="robot-fullscreen" style="display:none" onclick="hideFullscreenRobot()">
+  <img src="img/Mood00.png" class="no-download" oncontextmenu="return false" draggable="false" alt="Урок пройден">
+</div>
+
+<!-- Боковая панель теории -->
+<div id="theoryPanel" class="theory-panel">
+  <div class="theory-panel-head">
+    <span>Теория урока</span>
+    <button class="theory-close" onclick="closeTheoryPanel()">✕</button>
+  </div>
+  <div class="theory-panel-body" id="theoryPanelBody"></div>
+</div>
+<div id="theoryPanelOverlay" class="theory-panel-overlay" onclick="closeTheoryPanel()"></div>
+
 <div class="toast" id="toast"></div>
+<script src="api/client.js"></script>
 <script src="script.js"></script>
 <script>
   // Номер урока читается из адреса страницы: urok.html?id=1, urok.html?id=2 и т.д.
