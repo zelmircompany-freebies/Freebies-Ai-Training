@@ -52,28 +52,51 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 .tab:hover{border-color:#ffcf87}
 .tab.active{background:linear-gradient(135deg,#ffb020,#ff7900);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(255,121,0,.35)}
 
-/* cards — квадратные, разноцветные, в духе Uchi.ru */
+/* cards — квадратные, разноцветные, в духе Uchi.ru.
+   Если у урока есть картинка (img/uN.png) — она закрывает ВСЮ карточку
+   целиком (сама кнопка), поверх — только счётчик прогресса.
+   Если картинки нет (урок 20, либо файл не найден) — используется
+   цветной градиент-заглушка с эмодзи-иконкой и подписями. */
 .lesson-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
 .lesson-card{
  aspect-ratio:1/1;border-radius:26px;overflow:hidden;border:none;position:relative;
- cursor:pointer;transition:.18s;display:flex;flex-direction:column;justify-content:space-between;
- padding:20px;color:#fff;box-shadow:0 8px 0 rgba(0,0,0,.12),0 10px 24px rgba(0,0,0,.1);
+ cursor:pointer;transition:.18s;
+ box-shadow:0 8px 0 rgba(0,0,0,.12),0 10px 24px rgba(0,0,0,.1);
 }
 .lesson-card:hover{transform:translateY(-4px);box-shadow:0 12px 0 rgba(0,0,0,.12),0 18px 32px rgba(0,0,0,.16)}
 .lesson-card:active{transform:translateY(4px);box-shadow:0 4px 0 rgba(0,0,0,.12),0 6px 16px rgba(0,0,0,.1)}
-.lesson-card:before,.lesson-card:after{content:"";position:absolute;border-radius:50%;background:#fff;opacity:.14}
-.lesson-card:before{width:150px;height:150px;right:-55px;top:-60px}
-.lesson-card:after{width:100px;height:100px;left:-35px;bottom:-50px}
+.lesson-card.done{outline:4px solid #20bd83;outline-offset:-4px}
+
+/* Картинка урока — на весь квадрат карточки, это и есть "кнопка" */
+.card-cover-img{width:100%;height:100%;object-fit:cover;display:block}
+.card-cover-img:hover{transform:scale(1.04)}
+.card-cover-img{transition:.25s}
+
+/* Счётчик прогресса поверх картинки (или поверх градиента-заглушки) */
+.card-progress-badge{
+ position:absolute;top:10px;right:10px;z-index:3;
+ background:rgba(20,20,30,.62);backdrop-filter:blur(3px);
+ color:#fff;font-weight:900;font-size:13px;padding:6px 12px;border-radius:99px;
+ display:flex;align-items:center;gap:5px;
+}
+.card-progress-badge.done{background:rgba(10,156,99,.85)}
+.card-progress-badge .ring-dot{width:8px;height:8px;border-radius:50%;background:#ffd84f;flex-shrink:0}
+.card-progress-badge.done .ring-dot{background:#fff}
+
+/* Заглушка-градиент, когда картинки урока нет */
+.lesson-card.no-image{
+ display:flex;flex-direction:column;justify-content:space-between;
+ padding:20px;color:#fff;
+}
+.lesson-card.no-image:before,.lesson-card.no-image:after{content:"";position:absolute;border-radius:50%;background:#fff;opacity:.14}
+.lesson-card.no-image:before{width:150px;height:150px;right:-55px;top:-60px}
+.lesson-card.no-image:after{width:100px;height:100px;left:-35px;bottom:-50px}
 .cover-1{background:linear-gradient(135deg,#ffb84d,#ff6d00)}
 .cover-2{background:linear-gradient(135deg,#7ec8ff,#5b8def)}
 .cover-3{background:linear-gradient(135deg,#ffda5d,#ff9d15)}
 .cover-4{background:linear-gradient(135deg,#c69bff,#9b6bff)}
 .cover-5{background:linear-gradient(135deg,#ff9bc2,#ff5e88)}
 .cover-6{background:linear-gradient(135deg,#7ee0c1,#20bd83)}
-
-.lesson-card.done{outline:4px solid #20bd83;outline-offset:-4px}
-.status{position:relative;z-index:3;align-self:flex-end;background:rgba(255,255,255,.95);border-radius:99px;padding:6px 12px;font-size:10px;font-weight:900;color:#7c7690}
-.status.done{color:#0a9c63}
 
 .card-icon-row{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between}
 .illustration{font-size:42px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.15));transition:.2s}
@@ -291,9 +314,8 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 }
 img.no-download{ -webkit-touch-callout:none; }
 
-/* ===== Картинки на карточках уроков ===== */
-.card-cover-img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;z-index:1;opacity:.55;mix-blend-mode:overlay}
-.card-icon-row{position:relative;z-index:2;min-height:42px}
+/* (старые правила .card-cover-img/.card-icon-row удалены — актуальная
+   версия задана выше, картинка теперь закрывает всю карточку) */
 
 /* ===== Робот-помощник рядом с заданием (десктоп/планшет) ===== */
 .task-stage{display:flex;justify-content:center;align-items:flex-start;gap:24px;position:relative}
@@ -348,8 +370,21 @@ img.no-download{ -webkit-touch-callout:none; }
 .voice-photo{width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid #ffe9c7}
 .voice-person-name{font-weight:900;font-size:14px}
 .voice-clips{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;width:100%}
-.voice-clip{display:flex;flex-direction:column;gap:8px;align-items:center;background:#fff8ec;border:2px solid #ffe9c7;border-radius:16px;padding:14px;flex:1;min-width:200px}
-.voice-clip audio{width:100%}
+.voice-clip{display:flex;flex-direction:column;gap:10px;align-items:center;background:#fff8ec;border:2px solid #ffe9c7;border-radius:18px;padding:16px;flex:1;min-width:220px;position:relative;transition:.2s}
+.voice-clip-correct{border-color:#20bd83;background:#e2f9ee}
+.voice-clip-wrong{border-color:#ff5a72;background:#ffe9ec}
+.voice-tag{font-size:10.5px;font-weight:900;padding:4px 10px;border-radius:99px;align-self:flex-start}
+.voice-tag.ok{background:#20bd83;color:#fff}
+.voice-tag.no{background:#ff5a72;color:#fff}
+
+/* Кастомный аудиоплеер вместо голого <audio> */
+.voice-player{display:flex;align-items:center;gap:10px;width:100%;background:#fff;border-radius:14px;padding:10px 12px;border:2px solid #ffe9c7}
+.voice-play-btn{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ffb020,#ff7900);color:#fff;border:0;font-size:13px;cursor:pointer;flex-shrink:0;display:grid;place-items:center;box-shadow:0 3px 0 #d9670a}
+.voice-play-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #d9670a}
+.voice-progress-track{flex:1;height:6px;background:#ffe9c7;border-radius:99px;cursor:pointer;position:relative}
+.voice-progress-fill{height:100%;background:linear-gradient(90deg,var(--orange),var(--yellow));border-radius:99px;width:0%;transition:width .1s linear}
+.voice-time{font-size:11px;font-weight:800;color:var(--muted);min-width:32px;text-align:right}
+.voice-player audio{display:none}
 
 /* ===== Кликабельные слова (wordcheck) ===== */
 .wc-answer{font-size:14.5px;line-height:1.9;padding:14px;background:#fff8ec;border-radius:14px;border:2px solid #ffe9c7}
@@ -361,3 +396,8 @@ img.no-download{ -webkit-touch-callout:none; }
 .path-slots{position:relative}
 .path-slots .order-item{position:relative}
 .path-slots .order-item:not(:last-child):after{content:"↓";position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);color:#ffcf87;font-weight:900;font-size:14px;z-index:2}
+
+/* ===== Роботы-декорации на главной и лендинге ===== */
+.welcome-with-robot{display:flex;align-items:center;gap:16px}
+.welcome-robot{width:64px;height:auto;flex-shrink:0;animation:robot-bob 3s ease-in-out infinite}
+@media(max-width:560px){ .welcome-robot{width:48px} }

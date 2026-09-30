@@ -25,7 +25,10 @@
 <main class="page" id="lessons">
  <div class="container">
   <div class="welcome">
-   <div><h1>Мои уроки</h1><p>Проходи карточки по порядку и открывай новые возможности AI.</p></div>
+   <div class="welcome-with-robot">
+     <img id="welcomeRobot" class="welcome-robot no-download" src="img/Mood01.png" oncontextmenu="return false" draggable="false" alt="Робот-помощник" onerror="this.style.display='none'">
+     <div><h1>Мои уроки</h1><p>Проходи карточки по порядку и открывай новые возможности AI.</p></div>
+   </div>
    <div class="progress-box"><div class="progress-ring" id="overallRing"><b id="overallPct">0%</b></div><span><b id="overallText">0 из 20</b><br>уроков пройдено</span></div>
   </div>
   <div class="tabs">
@@ -55,6 +58,12 @@
 <script>
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');notify('Фильтр: '+b.textContent)});
 renderLessonGrid();
+// случайный робот-приветствие (Mood01-03) при каждой загрузке главной
+(function(){
+  const moods=['Mood01','Mood02','Mood03'];
+  const el=document.getElementById('welcomeRobot');
+  if(el) el.src='img/'+moods[Math.floor(Math.random()*moods.length)]+'.png';
+})();
 </script>
 </body>
 </html>

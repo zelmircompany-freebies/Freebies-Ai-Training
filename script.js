@@ -16,6 +16,21 @@
 const TOTAL_LESSONS = 20;
 const STORAGE_KEY = 'fat_progress_v2';
 
+/* ---------- Защита от недогрузки api/client.js -----------
+   Если файл api/client.js по какой-то причине не подключился
+   (не задеплоен, неверный путь, порядок тегов), все функции
+   генерации сразу дают понятную ошибку вместо "is not defined". */
+if(typeof generateText !== 'function'){
+  window.generateText = async function(){
+    throw new Error('Модуль api/client.js не загружен — проверь, что файл лежит в папке api/ и подключён в HTML раньше script.js');
+  };
+}
+if(typeof generateImage !== 'function'){
+  window.generateImage = async function(){
+    throw new Error('Модуль api/client.js не загружен — проверь, что файл лежит в папке api/ и подключён в HTML раньше script.js');
+  };
+}
+
 /* ===== Робот-помощник (Mood) =====
    На первом задании урока — случайное настроение (01-03).
    На остальных заданиях — по числу ошибок, допущенных при
@@ -115,28 +130,30 @@ function renderLessonGrid(){
       if(!lesson) continue;
       const total=lesson.tasks.length;
       const done=getDoneTasks(lid).length;
-      const pct=Math.round((done/total)*100);
       const complete=isLessonComplete(lid,total);
       if(complete) completedCount++;
-      const statusLabel=complete?'✓':(done>0?done+'/'+total:'');
-      // У уроков 1-19 есть картинка img/uN.png; урок 20 — только эмодзи-иконка
+      const badge=`<span class="card-progress-badge ${complete?'done':''}"><span class="ring-dot"></span>${done}/${total}</span>`;
+      // У уроков 1-19 есть картинка img/uN.png, которая закрывает ВСЮ карточку.
+      // Если файла нет (или урок 20) — карточка остаётся цветной заглушкой с иконкой.
       const hasImage=id<20;
-      const iconHtml=hasImage
-        ? `<img src="img/u${lid}.png" class="card-cover-img no-download" oncontextmenu="return false" draggable="false" alt="${esc(lesson.title)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'illustration',textContent:'${lesson.icon}'}))">`
-        : `<div class="illustration">${lesson.icon}</div>`;
-      html+=`
-      <article class="lesson-card ${lesson.cover} ${complete?'done':''}" onclick="location.href='urok.html?id=${lid}'">
-        ${statusLabel?`<span class="status ${complete?'done':''}">${statusLabel}</span>`:'<span></span>'}
-        <div class="card-icon-row">${iconHtml}</div>
-        <div class="card-text">
-          <h2>${lesson.title}</h2>
-          <span class="lesson-number">Урок ${lid}</span>
-          <div class="card-progress-row">
-            <div class="mini-ring" style="--progress:${pct*3.6}deg"><b>${pct}%</b></div>
-            <div class="card-meta">${done} из ${total}<br>заданий</div>
+      if(hasImage){
+        html+=`
+        <article class="lesson-card" onclick="location.href='urok.html?id=${lid}'">
+          ${badge}
+          <img src="img/u${lid}.png" class="card-cover-img no-download" oncontextmenu="return false" draggable="false" alt="Урок ${lid}: ${esc(lesson.title)}"
+               onerror="this.closest('.lesson-card').classList.add('no-image','${lesson.cover}');this.outerHTML='<div class=\\'card-icon-row\\'><div class=\\'illustration\\'>${lesson.icon}</div></div><div class=\\'card-text\\'><h2>${esc(lesson.title)}</h2><span class=\\'lesson-number\\'>Урок ${lid}</span></div>'">
+        </article>`;
+      } else {
+        html+=`
+        <article class="lesson-card no-image ${lesson.cover}" onclick="location.href='urok.html?id=${lid}'">
+          ${badge}
+          <div class="card-icon-row"><div class="illustration">${lesson.icon}</div></div>
+          <div class="card-text">
+            <h2>${lesson.title}</h2>
+            <span class="lesson-number">Урок ${lid}</span>
           </div>
-        </div>
-      </article>`;
+        </article>`;
+      }
     }
     grid.innerHTML=html;
     const overallPct=Math.round((completedCount/TOTAL_LESSONS)*100);
@@ -589,6 +606,9 @@ async function sendChatMessage(index){
 
   let replyText;
   try{
+    if(typeof generateText !== 'function'){
+      throw new Error('API-модуль не загружен (проверь, что файл api/client.js лежит рядом со script.js и подключён в urok.html до него)');
+    }
     replyText = await generateText(text);
   }catch(err){
     replyText = 'Не получилось получить ответ (' + err.message + '). Попробуй ещё раз чуть позже.';
@@ -699,7 +719,7 @@ function renderVoiceGuess(index,task){
   _state={round:0, rounds:task.rounds.map(r=>{
     // перемешиваем клипы в раунде местами каждый раз заново
     const clips=shuffle(r.clips);
-    return {...r, clips, answered:false};
+    return {...r, clips, answered:false, pickedIndex:null};
   })};
   const body=`<p>${task.instruction}</p><div id="voiceRoundStage"></div>`;
   return shell(index,task,'Практика','practice',body,footer(index,null));
@@ -714,11 +734,33 @@ function drawVoiceRound(){
   }
   const r=_state.rounds[_state.round];
   const askText=r.askReal ? 'Какая запись настоящая?' : 'Какая запись сгенерирована ИИ?';
-  const clipsHtml=r.clips.map((c,ci)=>`
-    <div class="voice-clip">
-      <audio controls src="${c.file}" class="no-download" controlsList="nodownload"></audio>
-      <button type="button" class="check-btn" onclick="pickVoice(${ci})">Это она</button>
-    </div>`).join('');
+  const clipsHtml=r.clips.map((c,ci)=>{
+    const isPicked = r.answered && r.pickedIndex===ci;
+    const showResult = r.answered && !r.note; // раунд-исключение (обе ИИ) результат не подсвечиваем
+    let resultClass='', resultTag='';
+    if(showResult){
+      const wantedIsAI = !r.askReal;
+      const thisIsTarget = c.isAI === wantedIsAI;
+      if(thisIsTarget){ resultClass='voice-clip-correct'; resultTag='<span class="voice-tag ok">✓ Правильный ответ</span>'; }
+      else if(isPicked){ resultClass='voice-clip-wrong'; resultTag='<span class="voice-tag no">✕ Твой выбор</span>'; }
+    }
+    return `
+    <div class="voice-clip ${resultClass}" id="voiceClip-${ci}">
+      ${resultTag}
+      <div class="voice-player" data-audio="${c.file}">
+        <button type="button" class="voice-play-btn" onclick="toggleVoicePlay(${ci})" id="voicePlayBtn-${ci}">▶</button>
+        <div class="voice-progress-track" onclick="seekVoice(event,${ci})">
+          <div class="voice-progress-fill" id="voiceProgress-${ci}"></div>
+        </div>
+        <span class="voice-time" id="voiceTime-${ci}">0:00</span>
+        <audio id="voiceAudio-${ci}" src="${c.file}" class="no-download" preload="metadata"
+               ontimeupdate="updateVoiceProgress(${ci})" onended="onVoiceEnded(${ci})"></audio>
+      </div>
+      <button type="button" class="check-btn ${isPicked?'secondary':''}" ${r.answered?'disabled':''} onclick="pickVoice(${ci})">
+        ${isPicked?'Твой выбор':'Это она'}
+      </button>
+    </div>`;
+  }).join('');
   stage.innerHTML=`
     <div class="voice-round">
       <div class="voice-person">
@@ -728,25 +770,62 @@ function drawVoiceRound(){
       <div class="quiz-q">Раунд ${_state.round+1} из ${total}: ${askText}</div>
       ${r.note?`<div class="practice-hint">${esc(r.note)}</div>`:''}
       <div class="voice-clips">${clipsHtml}</div>
+      ${r.answered?`<button type="button" class="check-btn secondary" style="margin-top:14px" onclick="nextVoiceRound()">Дальше →</button>`:''}
     </div>`;
+}
+function toggleVoicePlay(ci){
+  const audio=document.getElementById('voiceAudio-'+ci);
+  const btn=document.getElementById('voicePlayBtn-'+ci);
+  if(!audio) return;
+  // ставим на паузу все остальные плееры в раунде
+  document.querySelectorAll('.voice-clips audio').forEach(a=>{
+    if(a!==audio && !a.paused) a.pause();
+  });
+  document.querySelectorAll('.voice-play-btn').forEach(b=>{ if(b!==btn) b.textContent='▶'; });
+  if(audio.paused){ audio.play(); btn.textContent='⏸'; }
+  else { audio.pause(); btn.textContent='▶'; }
+}
+function updateVoiceProgress(ci){
+  const audio=document.getElementById('voiceAudio-'+ci);
+  const fill=document.getElementById('voiceProgress-'+ci);
+  const time=document.getElementById('voiceTime-'+ci);
+  if(!audio||!fill||!time||!audio.duration) return;
+  const pct=(audio.currentTime/audio.duration)*100;
+  fill.style.width=pct+'%';
+  const s=Math.floor(audio.currentTime);
+  time.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+}
+function onVoiceEnded(ci){
+  const btn=document.getElementById('voicePlayBtn-'+ci);
+  if(btn) btn.textContent='▶';
+}
+function seekVoice(e,ci){
+  const audio=document.getElementById('voiceAudio-'+ci);
+  const track=e.currentTarget;
+  if(!audio||!audio.duration) return;
+  const rect=track.getBoundingClientRect();
+  const pct=(e.clientX-rect.left)/rect.width;
+  audio.currentTime=pct*audio.duration;
 }
 function pickVoice(clipIndex){
   const r=_state.rounds[_state.round];
   if(r.answered) return;
   r.answered=true;
+  r.pickedIndex=clipIndex;
+  // ставим на паузу все плееры перед показом результата
+  document.querySelectorAll('.voice-clips audio').forEach(a=>a.pause());
   const clip=r.clips[clipIndex];
-  // "правильно" = совпадает с тем, что спросили (реальная или ИИ)
   const wantedIsAI = !r.askReal;
   const correct = clip.isAI === wantedIsAI || r.note; // раунд с note — всегда верно (обе ИИ)
   if(!correct) registerMistake();
-  showFeedback(!!correct, correct?'✓ Верно!':'Не в этот раз — но идём дальше');
-  setTimeout(()=>{
-    _state.round++;
-    drawVoiceRound();
-    if(_state.round>=_state.rounds.length){
-      completeTask(_currentStep,'✓ Практика завершена! 🎉');
-    }
-  }, 900);
+  drawVoiceRound(); // перерисовываем раунд, теперь с подсветкой правильного/неправильного
+}
+function nextVoiceRound(){
+  _state.round++;
+  drawVoiceRound();
+  if(_state.round>=_state.rounds.length){
+    completeTask(_currentStep,'✓ Практика завершена! 🎉');
+  }
 }
 
 /* ==================== Тип: wordcheck (уроки 13, 17 — кликабельные слова) ====================
