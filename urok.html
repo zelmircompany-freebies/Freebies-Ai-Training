@@ -59,11 +59,18 @@
 <div id="theoryPanelOverlay" class="theory-panel-overlay" onclick="closeTheoryPanel()"></div>
 
 <div class="toast" id="toast"></div>
-<script src="api/client.js"></script>
+<script src="js/ai-client.js"></script>
 <script src="script.js"></script>
 <script>
   // Номер урока читается из адреса страницы: urok.html?id=1, urok.html?id=2 и т.д.
   // Один файл на все уроки — добавлять новый urokN.html больше не нужно.
+  if(typeof generateText !== 'function'){
+    // Если после загрузки обоих файлов функции всё ещё нет — значит
+    // js/ai-client.js не долетел до сервера или лежит не в той папке.
+    // Явно предупреждаем в консоли, чтобы это не пришлось разгадывать
+    // по глухой ошибке внутри чата на телефоне.
+    console.error('js/ai-client.js не загрузился: проверь Network tab в DevTools — если там 404, файла нет по этому пути на сервере.');
+  }
   renderLessonPage();
 </script>
 </body>
