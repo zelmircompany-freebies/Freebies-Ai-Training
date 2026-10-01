@@ -3,6 +3,11 @@
    в файле /api/api.js (Vercel Serverless Function). Отсюда мы
    просто дёргаем ?action=... и получаем готовый ответ.
 
+   Текст идёт через action=agnes-text (модель agnes-2.5-pro),
+   картинки — через action=agnes-image (agnes-image-2.5-flash).
+   Оба route бьют напрямую в Agnes AI (apihub.agnes-ai.com),
+   без OpenRouter.
+
    Если сайт открыт не с самого Vercel-домена (например, локально
    через file:// или на другом хостинге), запросы можно направить
    на боевой домен явно — см. API_BASE ниже.
@@ -15,8 +20,6 @@ const API_BASE = (function(){
   const isVercelHost = /vercel\.app$|freebies-ai-training/i.test(location.hostname);
   return isVercelHost ? '' : 'https://freebies-ai-training.vercel.app';
 })();
-
-const AGNES_TEXT_MODEL = 'agnes'; // модель Agnes для генерации текста
 
 async function apiCall(action, body, method){
   method = method || 'POST';
@@ -38,14 +41,13 @@ async function apiCall(action, body, method){
   return data;
 }
 
-/* ---------- Генерация текста (чат) через OpenRouter → Agnes ---------- */
+/* ---------- Генерация текста (чат) напрямую через Agnes 2.5 Pro ---------- */
 async function generateText(userMessage, systemPrompt){
   const messages = [];
   if(systemPrompt) messages.push({ role:'system', content: systemPrompt });
   messages.push({ role:'user', content: userMessage });
 
-  const data = await apiCall('openrouter', {
-    model: AGNES_TEXT_MODEL,
+  const data = await apiCall('agnes-text', {
     messages,
     max_tokens: 700
   });
@@ -55,7 +57,7 @@ async function generateText(userMessage, systemPrompt){
   return text.trim();
 }
 
-/* ---------- Генерация картинки через Agnes ---------- */
+/* ---------- Генерация картинки через Agnes Image 2.5 Flash ---------- */
 async function generateImage(prompt, size){
   const data = await apiCall('agnes-image', {
     prompt,
