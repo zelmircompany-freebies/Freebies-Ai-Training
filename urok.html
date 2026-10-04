@@ -4,42 +4,64 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Урок — Freebies AI Training</title>
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png">
+<link rel="icon" type="image/x-icon" href="img/favicon.ico">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="lesson-body">
 <header class="header">
  <div class="container header-inner">
-  <a class="logo" href="index.html"><span class="logo-mark">✦</span><span>Freebies Ai<br><span class="logo-orange">Training</span></span></a>
-  <nav class="nav"><a href="index.html">Главная</a><a class="active" href="main.html">Уроки</a><a href="main.html#extras">Функции</a><a href="main.html#about">О нас</a><a href="main.html#faq">FAQ</a></nav>
+  <a class="logo" href="index.html">
+   <img src="img/android-chrome-512x512.png" class="logo-mark-img no-download" oncontextmenu="return false" draggable="false" alt="Freebies AI">
+   <span>Freebies Ai<br><span class="logo-orange">Training</span></span>
+  </a>
+  <nav class="nav"><a href="index.html">Главная</a><a class="active" href="main.html">Уроки</a><a href="main.html#about">О нас</a><a href="main.html#faq">FAQ</a></nav>
   <div class="profile">
-   <button class="icon-pill theory-btn" onclick="openTheoryPanel()" title="Теория урока"><img src="img/book.png" class="no-download" oncontextmenu="return false" draggable="false" alt="Теория"></button>
-   <span class="coin">🪙 743</span><button class="login" onclick="notify('Добро пожаловать!')">Войти</button><button class="menu">☰</button>
+   <span class="coin">🪙 743</span><button class="login" onclick="notify('Добро пожаловать!')">Войти</button>
+   <button class="menu" onclick="toggleMobileMenu()" aria-label="Меню">☰</button>
   </div>
+ </div>
+ <div class="mobile-menu" id="mobileMenu">
+  <a href="index.html">Главная</a>
+  <a href="main.html">Уроки</a>
+  <a href="main.html#about">О нас</a>
+  <a href="main.html#faq">FAQ</a>
  </div>
 </header>
 
+<!-- На ПК весь урок визуально оформлен как плавающая карточка поверх
+     затемнённого фона (modal-look); сама страница остаётся отдельной —
+     просто другое оформление .lesson-modal-frame в style.css -->
 <main class="lesson-page">
- <div class="container">
-  <div class="lesson-head">
-   <button class="back-btn" onclick="location.href='main.html'">←</button>
-   <div class="lesson-head-text">
-    <div class="eyebrow" id="lessonTopic">Загрузка...</div>
-    <h1 id="lessonTitle">Загрузка урока...</h1>
+ <div class="lesson-modal-frame">
+  <div class="container">
+   <div class="lesson-head">
+    <button class="back-btn" onclick="location.href='main.html'">
+     <img src="img/backroom.png" class="no-download" oncontextmenu="return false" draggable="false" alt="Назад">
+    </button>
+    <div class="lesson-head-text">
+     <div class="eyebrow" id="lessonTopic">Загрузка...</div>
+     <h1 id="lessonTitle">Загрузка урока...</h1>
+    </div>
+    <!-- Книжка-теория теперь внутри самого урока, а не в общей шапке сайта -->
+    <button class="icon-pill theory-btn" onclick="openTheoryPanel()" title="Теория урока">
+     <img src="img/book.png" class="no-download" oncontextmenu="return false" draggable="false" alt="Теория">
+    </button>
    </div>
+
+   <!-- Шаги: точки-индикаторы, клик по пройденному шагу возвращает к нему -->
+   <div class="step-track" id="stepTrack"></div>
+   <div class="step-label" id="stepLabel"></div>
+
+   <!-- Показывается только ТЕКУЩЕЕ задание, справа — робот-помощник (только на широких экранах) -->
+   <div class="task-stage">
+    <div id="tasksContainer" style="width:100%;max-width:680px"></div>
+    <img id="robotBuddy" class="robot-buddy no-download" src="img/Mood01.png" oncontextmenu="return false" draggable="false" alt="Помощник" style="display:none">
+   </div>
+
+   <!-- Переход к соседним урокам -->
+   <div class="lesson-nav" id="lessonSideNav"></div>
   </div>
-
-  <!-- Шаги: точки-индикаторы, клик по пройденному шагу возвращает к нему -->
-  <div class="step-track" id="stepTrack"></div>
-  <div class="step-label" id="stepLabel"></div>
-
-  <!-- Показывается только ТЕКУЩЕЕ задание, справа — робот-помощник (только на широких экранах) -->
-  <div class="task-stage">
-   <div id="tasksContainer" style="width:100%;max-width:680px"></div>
-   <img id="robotBuddy" class="robot-buddy no-download" src="img/Mood01.png" oncontextmenu="return false" draggable="false" alt="Помощник" style="display:none">
-  </div>
-
-  <!-- Переход к соседним урокам -->
-  <div class="lesson-nav" id="lessonSideNav"></div>
  </div>
 </main>
 
@@ -58,6 +80,32 @@
 </div>
 <div id="theoryPanelOverlay" class="theory-panel-overlay" onclick="closeTheoryPanel()"></div>
 
+<!-- Модалка "начать где закончил / с начала" — появляется при повторном
+     открытии урока, который уже начат или пройден -->
+<div id="resumeModal" class="resume-modal-overlay" style="display:none">
+  <div class="resume-modal">
+    <div class="resume-modal-icon">🔄</div>
+    <h3>Этот урок уже начат</h3>
+    <p id="resumeModalText">Хочешь продолжить с того места, где остановился, или начать заново?</p>
+    <div class="resume-modal-actions">
+      <button class="check-btn secondary" onclick="resumeFromWhereLeftOff()">Начать где закончил</button>
+      <button class="check-btn" onclick="resumeFromStart()">Начать с начала</button>
+    </div>
+  </div>
+</div>
+
+<!-- Плашка дневного лимита заданий, если он исчерпан -->
+<div id="limitModal" class="resume-modal-overlay" style="display:none">
+  <div class="resume-modal">
+    <div class="resume-modal-icon">⏳</div>
+    <h3>Лимит заданий на сегодня исчерпан</h3>
+    <p>Ты выполнил(а) 35 заданий сегодня — это дневной лимит. Новые задания станут доступны завтра.</p>
+    <div class="resume-modal-actions">
+      <button class="check-btn" onclick="location.href='main.html'">К списку уроков</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script src="js/ai-client.js"></script>
 <script src="script.js"></script>
@@ -65,13 +113,13 @@
   // Номер урока читается из адреса страницы: urok.html?id=1, urok.html?id=2 и т.д.
   // Один файл на все уроки — добавлять новый urokN.html больше не нужно.
   if(typeof generateText !== 'function'){
-    // Если после загрузки обоих файлов функции всё ещё нет — значит
-    // js/ai-client.js не долетел до сервера или лежит не в той папке.
-    // Явно предупреждаем в консоли, чтобы это не пришлось разгадывать
-    // по глухой ошибке внутри чата на телефоне.
     console.error('js/ai-client.js не загрузился: проверь Network tab в DevTools — если там 404, файла нет по этому пути на сервере.');
   }
-  renderLessonPage();
+  initLessonPageWithResumeCheck();
+
+  function toggleMobileMenu(){
+    document.getElementById('mobileMenu').classList.toggle('open');
+  }
 </script>
 </body>
 </html>

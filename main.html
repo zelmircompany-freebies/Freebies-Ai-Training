@@ -4,21 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Freebies AI Training — Уроки</title>
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png">
+<link rel="icon" type="image/x-icon" href="img/favicon.ico">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="top-banner">
- <div class="banner-inner">
-  <div class="banner-title">НОВЫЙ ФОРМАТ ОБУЧЕНИЯ<span>Учись, практикуйся, создавай проекты с AI</span></div>
-  <div class="banner-art">✦ ◉ ✦</div>
-  <button class="banner-btn" onclick="notify('Подробнее скоро')">Подробнее</button>
- </div>
-</div>
+<!-- Рекламный баннер — открывает письмо на почту -->
+<a class="top-banner-link" href="mailto:zelmir.company@gmail.com" aria-label="Написать нам на почту">
+  <img src="img/reklama.png" class="top-banner-img no-download" oncontextmenu="return false" draggable="false" alt="Freebies AI Training">
+</a>
+
 <header class="header">
  <div class="container header-inner">
-  <a class="logo" href="index.html"><span class="logo-mark">✦</span><span>Freebies Ai<br><span class="logo-orange">Training</span></span></a>
-  <nav class="nav"><a href="index.html">Главная</a><a class="active" href="main.html">Уроки</a><a href="#extras">Функции</a><a href="#about">О нас</a><a href="#faq">FAQ</a></nav>
-  <div class="profile"><span class="coin">🪙 743</span><button class="login" onclick="notify('Добро пожаловать!')">Войти</button><button class="menu">☰</button></div>
+  <a class="logo" href="index.html">
+   <img src="img/android-chrome-512x512.png" class="logo-mark-img no-download" oncontextmenu="return false" draggable="false" alt="Freebies AI">
+   <span>Freebies Ai<br><span class="logo-orange">Training</span></span>
+  </a>
+  <nav class="nav"><a href="index.html">Главная</a><a class="active" href="main.html">Уроки</a><a href="#about">О нас</a><a href="#faq">FAQ</a></nav>
+  <div class="profile">
+   <span class="coin">🪙 743</span>
+   <button class="login" onclick="notify('Добро пожаловать!')">Войти</button>
+   <button class="menu" id="menuBtn" onclick="toggleMobileMenu()" aria-label="Меню">☰</button>
+  </div>
+ </div>
+ <!-- Выпадающее мобильное меню -->
+ <div class="mobile-menu" id="mobileMenu">
+  <a href="index.html">Главная</a>
+  <a href="main.html">Уроки</a>
+  <a href="#about">О нас</a>
+  <a href="#faq">FAQ</a>
+  <a href="mailto:zelmir.company@gmail.com">Написать нам</a>
  </div>
 </header>
 
@@ -31,39 +46,66 @@
    </div>
    <div class="progress-box"><div class="progress-ring" id="overallRing"><b id="overallPct">0%</b></div><span><b id="overallText">0 из 20</b><br>уроков пройдено</span></div>
   </div>
-  <div class="tabs">
-   <button class="tab active">Все уроки</button><button class="tab">Начало</button><button class="tab">Инструменты</button><button class="tab">Контент</button><button class="tab">Практика</button>
+
+  <!-- Дневной лимит заданий -->
+  <div class="daily-limit-box" id="dailyLimitBox"></div>
+
+  <div class="tabs" id="filterTabs">
+   <button class="tab active" data-filter="all"><img src="img/uroki.png" class="tab-icon no-download" oncontextmenu="return false" draggable="false" alt="">Все уроки</button>
+   <button class="tab" data-filter="teachers"><img src="img/tch.png" class="tab-icon no-download" oncontextmenu="return false" draggable="false" alt="">От преподавателей</button>
+   <button class="tab" data-filter="users"><img src="img/users.png" class="tab-icon no-download" oncontextmenu="return false" draggable="false" alt="">Пользовательские</button>
   </div>
 
   <section class="lesson-grid" id="lessonGrid">
    <!-- карточки генерируются в script.js на основе lessons.json + прогресса -->
   </section>
 
-  <h2 class="extra-title" id="extras">Дополнительные возможности</h2>
-  <section class="extra-grid">
-   <div class="extra one"><h3>🎁 Бонусные материалы</h3><p>Чек-листы, шаблоны, промпты и полезные ссылки для каждого урока.</p><button onclick="notify('Бонусы открываются после урока')">Открыть →</button><div class="extra-icon">✦</div></div>
-   <div class="extra two"><h3>🏆 Сертификат</h3><p>Пройди пять уроков и подтверди свои новые навыки.</p><button onclick="notify('Сертификат будет доступен после курса')">Подробнее →</button><div class="extra-icon">★</div></div>
-   <div class="extra three" id="about"><h3>👥 AI-сообщество</h3><p>Общайся, задавай вопросы и делись своими AI-проектами.</p><button onclick="notify('Добро пожаловать в сообщество!')">Присоединиться →</button><div class="extra-icon">●</div></div>
-  </section>
+  <!-- Пустые состояния для фильтров "от преподавателей" / "пользовательские" -->
+  <div class="empty-filter-state" id="emptyTeachers" style="display:none">
+   <div class="empty-icon">👩‍🏫</div>
+   <h3>Пока нет уроков от преподавателей</h3>
+   <p>Скоро здесь появятся авторские уроки от учителей. Загляни позже!</p>
+  </div>
+  <div class="empty-filter-state" id="emptyUsers" style="display:none">
+   <div class="empty-icon">🧩</div>
+   <h3>Пока нет пользовательских уроков</h3>
+   <p>Конструктор уроков для пользователей ещё не готов — но он уже в разработке.</p>
+  </div>
  </div>
 </main>
 
 <footer class="footer" id="faq"><div class="container footer-inner">
- <div class="logo"><span class="logo-mark">✦</span><span>Freebies Ai<br><span class="logo-orange">Training</span></span></div>
- <div class="footer-links"><a href="index.html">Главная</a><a href="main.html">Уроки</a><a href="#extras">Функции</a><a href="#about">О нас</a><a href="#faq">FAQ</a></div>
+ <div class="logo"><img src="img/android-chrome-512x512.png" class="logo-mark-img no-download" oncontextmenu="return false" draggable="false" alt="Freebies AI"><span>Freebies Ai<br><span class="logo-orange">Training</span></span></div>
+ <div class="footer-links"><a href="index.html">Главная</a><a href="main.html">Уроки</a><a href="#about">О нас</a><a href="#faq">FAQ</a></div>
  <small>© 2026 Freebies Ai Training</small>
 </div></footer>
 <div class="toast" id="toast"></div>
 <script src="script.js"></script>
 <script>
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');notify('Фильтр: '+b.textContent)});
+// Фильтры: "Все уроки" показывает сетку как сейчас; "От преподавателей" и
+// "Пользовательские" показывают пустое состояние — для них пока нет контента.
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  const filter=b.dataset.filter;
+  document.getElementById('lessonGrid').style.display = filter==='all' ? '' : 'none';
+  document.getElementById('emptyTeachers').style.display = filter==='teachers' ? '' : 'none';
+  document.getElementById('emptyUsers').style.display = filter==='users' ? '' : 'none';
+});
+
 renderLessonGrid();
+renderDailyLimitBox();
+
 // случайный робот-приветствие (Mood01-03) при каждой загрузке главной
 (function(){
   const moods=['Mood01','Mood02','Mood03'];
   const el=document.getElementById('welcomeRobot');
   if(el) el.src='img/'+moods[Math.floor(Math.random()*moods.length)]+'.png';
 })();
+
+function toggleMobileMenu(){
+  document.getElementById('mobileMenu').classList.toggle('open');
+}
 </script>
 </body>
 </html>

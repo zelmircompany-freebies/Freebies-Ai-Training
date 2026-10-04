@@ -15,6 +15,57 @@
 
 const TOTAL_LESSONS = 20;
 const STORAGE_KEY = 'fat_progress_v2';
+const DAILY_LIMIT_KEY = 'fat_daily_limit_v1';
+const DAILY_LIMIT_MAX = 35;
+
+/* ===== Дневной лимит заданий =====
+   Каждое выполненное задание (включая повторное прохождение) считается
+   в дневной лимит. Счётчик хранится вместе с датой (YYYY-MM-DD по
+   локальному времени устройства) и сбрасывается сам, как только
+   наступает новый день — никакого отдельного таймера не нужно,
+   достаточно сравнивать дату при каждом обращении. */
+function todayKey(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function getDailyLimitState(){
+  let raw;
+  try{ raw=JSON.parse(localStorage.getItem(DAILY_LIMIT_KEY)||'null'); }catch(e){ raw=null; }
+  const today=todayKey();
+  if(!raw || raw.date!==today){
+    raw={date:today, count:0};
+    localStorage.setItem(DAILY_LIMIT_KEY, JSON.stringify(raw));
+  }
+  return raw;
+}
+function getDailyLimitRemaining(){
+  return Math.max(0, DAILY_LIMIT_MAX - getDailyLimitState().count);
+}
+function isDailyLimitReached(){
+  return getDailyLimitRemaining()<=0;
+}
+// увеличивает счётчик на 1 за выполненное задание; возвращает true, если
+// лимит ещё не был исчерпан ДО этого вызова (т.е. задание разрешено засчитать)
+function consumeDailyLimit(){
+  const state=getDailyLimitState();
+  if(state.count>=DAILY_LIMIT_MAX) return false;
+  state.count++;
+  localStorage.setItem(DAILY_LIMIT_KEY, JSON.stringify(state));
+  return true;
+}
+function renderDailyLimitBox(){
+  const box=document.getElementById('dailyLimitBox');
+  if(!box) return;
+  const remaining=getDailyLimitRemaining();
+  const used=DAILY_LIMIT_MAX-remaining;
+  const pct=Math.round((used/DAILY_LIMIT_MAX)*100);
+  box.innerHTML=`
+    <div class="daily-limit-row">
+      <span class="daily-limit-label">📅 Сегодня выполнено: <b>${used} из ${DAILY_LIMIT_MAX}</b> заданий</span>
+      <span class="daily-limit-remaining">${remaining>0 ? 'Осталось: '+remaining : 'Лимит на сегодня исчерпан'}</span>
+    </div>
+    <div class="daily-limit-bar"><i style="width:${pct}%"></i></div>`;
+}
 
 /* ---------- Защита от недогрузки api/client.js -----------
    Если файл api/client.js по какой-то причине не подключился
@@ -202,6 +253,59 @@ function renderLessonPage(lessonId){
   });
 }
 
+/* ---------- Модалка "начать где закончил / с начала" ----------
+   Показывается при открытии урока, в котором уже есть прогресс
+   (хотя бы одно выполненное задание — частичный или полный).
+   Если прогресса нет — урок просто открывается как обычно. */
+function initLessonPageWithResumeCheck(){
+  const lessonId=getLessonIdFromUrl();
+  const done=getDoneTasks(lessonId);
+  if(done.length===0){
+    // новый урок — модалка не нужна, открываем как обычно
+    renderLessonPage(lessonId);
+    return;
+  }
+  // уже есть прогресс — спрашиваем, что делать, не рендеря задания заранее
+  _lessonId=lessonId;
+  fetch('lessons.json').then(r=>r.json()).then(data=>{
+    _lessonData=data[lessonId];
+    if(!_lessonData){ renderLessonPage(lessonId); return; }
+    document.getElementById('lessonTopic').textContent=_lessonData.topic;
+    document.getElementById('lessonTitle').textContent=_lessonData.title;
+    document.title='Урок '+lessonId+' — '+_lessonData.title;
+    renderLessonSideNav(data);
+
+    const total=_lessonData.tasks.length;
+    const complete=isLessonComplete(lessonId,total);
+    const text=document.getElementById('resumeModalText');
+    if(text){
+      text.textContent = complete
+        ? 'Ты уже прошёл(а) этот урок полностью. Хочешь посмотреть результат ещё раз или пройти урок заново?'
+        : `Ты уже выполнил(а) ${done.length} из ${total} заданий. Хочешь продолжить с того места, где остановился(ась), или начать заново?`;
+    }
+    const modal=document.getElementById('resumeModal');
+    if(modal) modal.style.display='flex';
+  });
+}
+function resumeFromWhereLeftOff(){
+  const modal=document.getElementById('resumeModal');
+  if(modal) modal.style.display='none';
+  _currentStep=firstUndone();
+  renderStepTrack();
+  renderCurrentStep();
+}
+function resumeFromStart(){
+  const modal=document.getElementById('resumeModal');
+  if(modal) modal.style.display='none';
+  // Сбрасываем прогресс именно этого урока (не трогая остальные уроки)
+  const p=getProgress();
+  p[_lessonId]=[];
+  saveProgress(p);
+  _currentStep=0;
+  renderStepTrack();
+  renderCurrentStep();
+}
+
 // Кнопки "предыдущий/следующий урок" внизу страницы, если есть в разметке
 function renderLessonSideNav(data){
   const nav=document.getElementById('lessonSideNav');
@@ -230,9 +334,17 @@ function renderStepTrack(){
     : `Шаг ${_currentStep+1} из ${_lessonData.tasks.length}`;
 }
 
-// Назад — можно всегда. Вперёд — только до первого невыполненного задания.
+// Назад — можно всегда. Вперёд — только до первого невыполненного задания,
+// и только если дневной лимит заданий ещё не исчерпан.
 function goToStep(index){
   if(index<0) return;
+  const done=getDoneTasks(_lessonId);
+  const movingForwardToNew = index>_currentStep && !done.includes(index) && index<(_lessonData?_lessonData.tasks.length:0);
+  if(movingForwardToNew && isDailyLimitReached()){
+    const m=document.getElementById('limitModal');
+    if(m) m.style.display='flex';
+    return;
+  }
   if(index<=firstUndone()){
     _currentStep=index;
     renderStepTrack();
@@ -313,15 +425,17 @@ function shell(index, task, tag, tagClass, body, footerHtml){
 }
 
 // checkLabel = null → без кнопки «Проверить» (например, в заданиях с парами)
+// Кнопки оформлены картинками (img/provert.png, img/dalshe.png), а не текстом —
+// подпись остаётся как alt/aria-label для доступности и как title на наведении.
 function footer(index, checkLabel){
   const done=isDone(index);
   const last=index===_lessonData.tasks.length-1;
-  const nextLabel=last?'Завершить урок 🎉':'Дальше →';
-  const checkBtn=checkLabel?`<button class="check-btn" id="checkBtn" onclick="checkCurrent()">${checkLabel}</button>`:'';
+  const nextAlt=last?'Завершить урок':'Дальше';
+  const checkBtn=checkLabel?`<button type="button" class="check-btn img-btn" id="checkBtn" onclick="checkCurrent()" title="${esc(checkLabel)}" aria-label="${esc(checkLabel)}"><img src="img/provert.png" class="no-download" oncontextmenu="return false" draggable="false" alt="${esc(checkLabel)}"></button>`:'';
   return `
   <div class="task-actions">
     ${checkBtn}
-    <button class="check-btn secondary" id="nextBtn" style="${done?'':'display:none'}" onclick="goToStep(${index+1})">${nextLabel}</button>
+    <button type="button" class="check-btn secondary img-btn" id="nextBtn" style="${done?'':'display:none'}" onclick="goToStep(${index+1})" title="${nextAlt}" aria-label="${nextAlt}"><img src="img/dalshe.png" class="no-download" oncontextmenu="return false" draggable="false" alt="${nextAlt}"></button>
   </div>
   <div class="task-feedback" id="feedback-box"></div>`;
 }
@@ -333,14 +447,25 @@ function showFeedback(ok,msg){
   fb.innerHTML=msg;
 }
 
-// задание выполнено: сохраняем, показываем «Дальше», прячем «Проверить»
+// задание выполнено: сохраняем, показываем «Дальше», прячем «Проверить».
+// Каждое выполнение (включая повтор уже пройденного) тратит дневной лимит.
 function completeTask(index,msg){
+  consumeDailyLimit();
   markTaskDone(_lessonId,index);
   showFeedback(true,msg);
   const cb=document.getElementById('checkBtn'); if(cb) cb.style.display='none';
   const nb=document.getElementById('nextBtn'); if(nb) nb.style.display='';
   renderStepTrack();
   showRobot(robotMoodForMistakes(_mistakeCount));
+  if(isDailyLimitReached()) showLimitModalSoon();
+}
+// показываем модалку лимита с небольшой задержкой, чтобы ученик успел
+// увидеть фидбек о последнем выполненном задании, прежде чем экран перекроет
+function showLimitModalSoon(){
+  setTimeout(()=>{
+    const m=document.getElementById('limitModal');
+    if(m) m.style.display='flex';
+  }, 1400);
 }
 
 function checkCurrent(){
@@ -352,10 +477,13 @@ function checkCurrent(){
 /* ==================== Тип: read ==================== */
 function renderRead(index,task){
   return shell(index,task,'Теория','',task.text,
-    `<div class="task-actions"><button class="check-btn" onclick="finishRead(${index})">Понятно, дальше →</button></div>`);
+    `<div class="task-actions"><button type="button" class="check-btn img-btn" onclick="finishRead(${index})" title="Дальше" aria-label="Дальше"><img src="img/dalshe.png" class="no-download" oncontextmenu="return false" draggable="false" alt="Дальше"></button></div>`);
 }
 function finishRead(index){
+  consumeDailyLimit();
   markTaskDone(_lessonId,index);
+  renderStepTrack();
+  if(isDailyLimitReached()) showLimitModalSoon();
   goToStep(index+1);
 }
 
@@ -770,7 +898,7 @@ function drawVoiceRound(){
       <div class="quiz-q">Раунд ${_state.round+1} из ${total}: ${askText}</div>
       ${r.note?`<div class="practice-hint">${esc(r.note)}</div>`:''}
       <div class="voice-clips">${clipsHtml}</div>
-      ${r.answered?`<button type="button" class="check-btn secondary" style="margin-top:14px" onclick="nextVoiceRound()">Дальше →</button>`:''}
+      ${r.answered?`<button type="button" class="check-btn secondary img-btn" style="margin-top:14px" onclick="nextVoiceRound()" title="Дальше" aria-label="Дальше"><img src="img/dalshe.png" class="no-download" oncontextmenu="return false" draggable="false" alt="Дальше"></button>`:''}
     </div>`;
 }
 function toggleVoicePlay(ci){

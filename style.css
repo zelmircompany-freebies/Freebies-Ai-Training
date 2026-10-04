@@ -10,30 +10,37 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 .container{width:min(1180px,calc(100% - 32px));margin:auto}
 
 /* Header */
-.top-banner{height:76px;background:linear-gradient(100deg,#ffb84d,#ff7900 55%,#ff5e7a);color:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
-.top-banner:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 85% -20%,rgba(255,255,255,.35),transparent 55%)}
-.banner-inner{width:min(1180px,calc(100% - 32px));display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
-.banner-title{font-size:23px;font-weight:900}.banner-title span{font-size:12px;font-weight:700;display:block;opacity:.95}
-.banner-art{font-size:35px;letter-spacing:8px}
-.banner-btn{background:#fff;color:#e86c00;border:0;border-radius:99px;padding:11px 20px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #d9670a}
-.banner-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #d9670a}
+/* Рекламный баннер — ссылка-картинка на всю ширину, открывает письмо на почту */
+.top-banner-link{display:block;line-height:0}
+.top-banner-img{width:100%;height:auto;display:block;max-height:140px;object-fit:cover}
 
-.header{height:64px;background:#fff;border-bottom:2px solid #eee3ee;display:flex;align-items:center}
+.header{height:64px;background:#fff;border-bottom:2px solid #eee3ee;display:flex;align-items:center;position:relative}
 .header-inner{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .logo{display:flex;align-items:center;gap:10px;font-weight:900;line-height:.95;font-size:15px;flex-shrink:0}
-.logo-mark{width:38px;height:38px;display:grid;place-items:center;background:linear-gradient(135deg,#ffd23f,#ff7900);clip-path:polygon(50% 0,100% 28%,82% 78%,50% 100%,18% 78%,0 28%);color:#fff;font-size:17px;box-shadow:0 4px 10px rgba(255,121,0,.35)}
+.logo-mark-img{width:38px;height:38px;border-radius:11px;object-fit:cover;flex-shrink:0;box-shadow:0 4px 10px rgba(255,121,0,.25)}
 .logo-orange{color:var(--orange)}
 .nav{display:flex;gap:4px;color:#7c7690;font-size:13px;font-weight:800}
 .nav a{padding:9px 14px;border-radius:99px;transition:.15s}
 .nav a:hover{background:#fff3de;color:var(--orange)}
 .nav a.active{background:#fff0d8;color:var(--orange)}
 .profile{display:flex;gap:8px;align-items:center;flex-shrink:0}
-.icon-pill{width:38px;height:38px;border-radius:50%;background:#f5f2fa;display:grid;place-items:center;font-size:16px;position:relative;flex-shrink:0}
+.icon-pill{width:38px;height:38px;border-radius:50%;background:#f5f2fa;border:0;display:grid;place-items:center;font-size:16px;position:relative;flex-shrink:0;cursor:pointer}
+.icon-pill img{width:20px;height:20px;object-fit:contain}
 .icon-pill .badge{position:absolute;top:-3px;right:-3px;background:#ff5a72;color:#fff;font-size:9px;font-weight:900;border-radius:50%;width:16px;height:16px;display:grid;place-items:center}
 .coin{background:linear-gradient(135deg,#ffe58a,#ffc93f);border-radius:99px;padding:8px 14px;font-weight:900;color:#7a5900;box-shadow:inset 0 -3px 0 rgba(0,0,0,.08);font-size:13px;display:flex;align-items:center;gap:5px;flex-shrink:0}
 .login{background:var(--orange);color:#fff;border:0;border-radius:99px;padding:10px 20px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #d9670a;font-size:13px;flex-shrink:0}
 .login:active{transform:translateY(3px);box-shadow:0 1px 0 #d9670a}
-.menu{display:none;background:none;border:0;font-size:24px}
+.menu{display:none;background:none;border:0;font-size:24px;cursor:pointer;color:var(--ink)}
+
+/* Мобильное выпадающее меню (гамбургер) */
+.mobile-menu{
+ display:none;flex-direction:column;position:absolute;top:100%;right:16px;
+ background:#fff;border:2px solid #ffe9c7;border-radius:16px;padding:8px;
+ box-shadow:0 12px 28px rgba(0,0,0,.14);min-width:200px;z-index:60;
+}
+.mobile-menu.open{display:flex}
+.mobile-menu a{padding:12px 14px;border-radius:11px;color:var(--ink);font-weight:800;font-size:14px}
+.mobile-menu a:hover{background:#fff3de;color:var(--orange)}
 
 /* intro */
 .page{padding:34px 0 60px}
@@ -46,11 +53,18 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 .progress-ring b{position:relative;z-index:1;font-size:11px}.progress-box span{font-size:12px;color:var(--muted);font-weight:700}
 .progress-box b{color:var(--ink)}
 
-/* tabs */
+/* tabs — 3 фильтра с иконками: Все уроки / От преподавателей / Пользовательские */
 .tabs{display:flex;gap:9px;margin-bottom:22px;overflow:auto;padding-bottom:2px}
-.tab{border:2px solid #ffe9c7;background:#fff;padding:10px 18px;border-radius:99px;color:#8a84a0;font-size:13px;font-weight:800;white-space:nowrap;cursor:pointer;transition:.15s}
+.tab{display:flex;align-items:center;gap:8px;border:2px solid #ffe9c7;background:#fff;padding:9px 18px 9px 12px;border-radius:99px;color:#8a84a0;font-size:13px;font-weight:800;white-space:nowrap;cursor:pointer;transition:.15s}
+.tab-icon{width:20px;height:20px;object-fit:contain;flex-shrink:0}
 .tab:hover{border-color:#ffcf87}
 .tab.active{background:linear-gradient(135deg,#ffb020,#ff7900);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(255,121,0,.35)}
+
+/* Пустое состояние для фильтров без контента (От преподавателей / Пользовательские) */
+.empty-filter-state{text-align:center;padding:70px 20px;color:var(--muted)}
+.empty-filter-state .empty-icon{font-size:56px;margin-bottom:16px}
+.empty-filter-state h3{font-size:19px;color:var(--ink);margin:0 0 8px;font-weight:900}
+.empty-filter-state p{font-size:14px;margin:0;max-width:380px;margin-inline:auto}
 
 /* cards — квадратные, разноцветные, в духе Uchi.ru.
    Если у урока есть картинка (img/uN.png) — она закрывает ВСЮ карточку
@@ -113,13 +127,16 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 .card-meta{font-size:10.5px;color:rgba(255,255,255,.9);font-weight:700;line-height:1.3}
 
 /* extra cards */
-.extra-title{font-size:23px;margin:42px 0 18px;font-weight:900}
-.extra-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
-.extra{border-radius:26px;padding:24px;min-height:155px;color:#fff;position:relative;overflow:hidden}
-.extra h3{margin:0 0 8px;font-size:20px;font-weight:900}.extra p{margin:0;font-size:12.5px;line-height:1.55;max-width:240px;opacity:.95;font-weight:600}
-.extra button{margin-top:17px;background:#fff;border:0;color:var(--orange);border-radius:99px;padding:9px 16px;font-weight:900;font-size:11px;cursor:pointer}
-.extra.one{background:linear-gradient(135deg,#ff7900,#ffad16)}.extra.two{background:linear-gradient(135deg,#ffad16,#ffd33e);color:#473000}.extra.three{background:linear-gradient(135deg,#9b6bff,#ff6b9d)}
-.extra-icon{position:absolute;right:14px;bottom:6px;font-size:70px;opacity:.22}
+/* Блок "Дополнительные возможности" убран из разметки — старые .extra*
+   стили удалены вместе с ним, они больше нигде не используются. */
+
+/* Дневной лимит заданий — полоска под приветствием на главной */
+.daily-limit-box{background:#fff;border:2px solid #ffe9c7;border-radius:18px;padding:14px 18px;margin-bottom:20px}
+.daily-limit-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:9px}
+.daily-limit-label{font-size:13px;font-weight:700;color:var(--ink)}
+.daily-limit-remaining{font-size:12.5px;font-weight:800;color:var(--orange)}
+.daily-limit-bar{height:8px;background:#f0ecf7;border-radius:99px;overflow:hidden}
+.daily-limit-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--orange),var(--yellow));border-radius:99px;transition:.3s}
 
 /* footer */
 .footer{background:#fff;border-top:3px solid #ffe9c7;padding:30px 0}
@@ -131,10 +148,14 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 /* ===== Страница урока ===== */
 .lesson-page{padding:26px 0 60px;min-height:80vh}
 .lesson-head{display:flex;align-items:center;gap:14px;margin-bottom:18px}
-.back-btn{width:44px;height:44px;border-radius:16px;background:#fff;border:2px solid #ffe9c7;display:grid;place-items:center;font-weight:900;color:var(--orange);cursor:pointer;flex-shrink:0;font-size:18px;transition:.15s}
+.back-btn{width:44px;height:44px;border-radius:16px;background:#fff;border:2px solid #ffe9c7;display:grid;place-items:center;font-weight:900;color:var(--orange);cursor:pointer;flex-shrink:0;font-size:18px;transition:.15s;padding:0}
 .back-btn:hover{background:#fff3de}
+.back-btn img{width:20px;height:20px;object-fit:contain}
+.lesson-head-text{flex:1;min-width:0}
 .lesson-head-text .eyebrow{color:var(--orange);font-size:12px;font-weight:900;margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
 .lesson-head-text h1{font-size:24px;margin:0;font-weight:900}
+/* Книжка-теория теперь справа от заголовка внутри самого урока (не в общей шапке сайта) */
+.lesson-head .theory-btn{margin-left:auto}
 
 /* шаги (степпер) */
 .step-track{display:flex;align-items:center;gap:6px;margin-bottom:8px}
@@ -195,11 +216,10 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 }
 @media(max-width:850px){
  .nav{display:none}.profile .coin{display:none}.menu{display:block}
- .lesson-grid{grid-template-columns:repeat(2,1fr)}.extra-grid{grid-template-columns:1fr}
+ .lesson-grid{grid-template-columns:repeat(2,1fr)}
  .welcome{align-items:start;gap:15px;flex-direction:column}
 }
 @media(max-width:560px){
- .top-banner{height:58px}.banner-title{font-size:15px}.banner-art{font-size:22px}.banner-btn{padding:8px 12px;font-size:10px}
  .container{width:calc(100% - 22px)}.page{padding-top:22px}
  .lesson-grid{grid-template-columns:repeat(2,1fr);gap:12px}
  .card-text h2{font-size:14px}.illustration{font-size:34px}
@@ -401,3 +421,48 @@ img.no-download{ -webkit-touch-callout:none; }
 .welcome-with-robot{display:flex;align-items:center;gap:16px}
 .welcome-robot{width:64px;height:auto;flex-shrink:0;animation:robot-bob 3s ease-in-out infinite}
 @media(max-width:560px){ .welcome-robot{width:48px} }
+
+/* ===== "Модальное" оформление урока для ПК =====
+   Сама страница urok.html остаётся отдельным URL — просто на широких
+   экранах контент визуально выглядит как плавающая карточка поверх
+   затемнённого фона, как настоящее модальное окно. На телефоне это
+   оформление отключается — там обычная полноразмерная страница. */
+@media(min-width:1000px){
+  .lesson-body{
+    background:
+      radial-gradient(circle at 20% 10%, rgba(255,176,32,.10), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(91,141,239,.08), transparent 45%),
+      #f2eef7;
+  }
+  .lesson-modal-frame{
+    max-width:920px;margin:28px auto 50px;background:#fff;
+    border-radius:32px;padding:34px 10px 10px;
+    box-shadow:0 30px 70px rgba(43,36,64,.18), 0 2px 0 #fff inset;
+    border:1px solid rgba(43,36,64,.05);
+  }
+}
+
+/* Книжка-теория: см. .theory-btn выше — она теперь находится внутри
+   .lesson-head (в самом уроке), а не в общей шапке сайта. */
+
+/* ===== Кнопки-картинки (Проверить / Дальше) ===== */
+.img-btn{padding:0!important;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;overflow:hidden}
+.img-btn img{width:28px;height:28px;object-fit:contain}
+.img-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ===== Модалка "начать где закончил / с начала" и модалка дневного лимита ===== */
+.resume-modal-overlay{
+  position:fixed;inset:0;background:rgba(43,36,64,.45);z-index:300;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  animation:fade-in .2s ease;
+}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+.resume-modal{
+  background:#fff;border-radius:28px;padding:36px 32px;max-width:420px;width:100%;
+  text-align:center;box-shadow:0 30px 70px rgba(0,0,0,.25);animation:pop-in .25s ease;
+}
+.resume-modal-icon{font-size:48px;margin-bottom:12px}
+.resume-modal h3{font-size:19px;margin:0 0 10px;font-weight:900;color:var(--ink)}
+.resume-modal p{font-size:14px;color:var(--muted);margin:0 0 24px;line-height:1.55}
+.resume-modal-actions{display:flex;flex-direction:column;gap:10px}
+.resume-modal-actions .check-btn{width:100%;border-radius:16px;padding:13px}
