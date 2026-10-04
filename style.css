@@ -25,6 +25,11 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 .nav a.active{background:#fff0d8;color:var(--orange)}
 .profile{display:flex;gap:8px;align-items:center;flex-shrink:0}
 .icon-pill{width:38px;height:38px;border-radius:50%;background:#f5f2fa;border:0;display:grid;place-items:center;font-size:16px;position:relative;flex-shrink:0;cursor:pointer}
+/* Кнопка теории — картинка book.png уже содержит свой фон/обводку,
+   поэтому для неё отдельно убираем фон .icon-pill, чтобы не было
+   кружка внутри кружка. */
+.icon-pill.theory-btn{background:none;width:auto;height:auto;transition:transform .12s ease}
+.icon-pill.theory-btn:hover{transform:scale(1.04)}
 .icon-pill img{width:20px;height:20px;object-fit:contain}
 .icon-pill .badge{position:absolute;top:-3px;right:-3px;background:#ff5a72;color:#fff;font-size:9px;font-weight:900;border-radius:50%;width:16px;height:16px;display:grid;place-items:center}
 .coin{background:linear-gradient(135deg,#ffe58a,#ffc93f);border-radius:99px;padding:8px 14px;font-weight:900;color:#7a5900;box-shadow:inset 0 -3px 0 rgba(0,0,0,.08);font-size:13px;display:flex;align-items:center;gap:5px;flex-shrink:0}
@@ -53,12 +58,20 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 .progress-ring b{position:relative;z-index:1;font-size:11px}.progress-box span{font-size:12px;color:var(--muted);font-weight:700}
 .progress-box b{color:var(--ink)}
 
-/* tabs — 3 фильтра с иконками: Все уроки / От преподавателей / Пользовательские */
-.tabs{display:flex;gap:9px;margin-bottom:22px;overflow:auto;padding-bottom:2px}
-.tab{display:flex;align-items:center;gap:8px;border:2px solid #ffe9c7;background:#fff;padding:9px 18px 9px 12px;border-radius:99px;color:#8a84a0;font-size:13px;font-weight:800;white-space:nowrap;cursor:pointer;transition:.15s}
-.tab-icon{width:20px;height:20px;object-fit:contain;flex-shrink:0}
-.tab:hover{border-color:#ffcf87}
-.tab.active{background:linear-gradient(135deg,#ffb020,#ff7900);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(255,121,0,.35)}
+/* tabs — 3 фильтра: каждая кнопка ПОЛНОСТЬЮ картинка (капсула, иконка
+   и подпись уже нарисованы внутри uroki.png/tch.png/users.png) — поэтому
+   никакого собственного фона, рамки или текста рядом не добавляем. */
+.tabs{display:flex;gap:12px;margin-bottom:22px;overflow:auto;padding-bottom:2px}
+.tab-img{
+  background:none;border:0;padding:0;margin:0;cursor:pointer;
+  border-radius:99px;transition:transform .12s ease,filter .15s ease;
+  flex-shrink:0;line-height:0;
+}
+.tab-img img{height:52px;width:auto;object-fit:contain;display:block}
+.tab-img:hover{transform:translateY(-2px)}
+/* активный фильтр — лёгкая тёплая подсветка-ореол вокруг картинки,
+   не перекрывающая саму капсулу */
+.tab-img.active{filter:drop-shadow(0 4px 14px rgba(255,121,0,.45))}
 
 /* Пустое состояние для фильтров без контента (От преподавателей / Пользовательские) */
 .empty-filter-state{text-align:center;padding:70px 20px;color:var(--muted)}
@@ -148,9 +161,12 @@ button,a{font:inherit}a{text-decoration:none;color:inherit}
 /* ===== Страница урока ===== */
 .lesson-page{padding:26px 0 60px;min-height:80vh}
 .lesson-head{display:flex;align-items:center;gap:14px;margin-bottom:18px}
-.back-btn{width:44px;height:44px;border-radius:16px;background:#fff;border:2px solid #ffe9c7;display:grid;place-items:center;font-weight:900;color:var(--orange);cursor:pointer;flex-shrink:0;font-size:18px;transition:.15s;padding:0}
-.back-btn:hover{background:#fff3de}
-.back-btn img{width:20px;height:20px;object-fit:contain}
+/* Кнопка "Назад" — тоже готовая картинка со своим фоном и формой,
+   поэтому у .back-btn своего фона/рамки больше нет, только размер. */
+.back-btn{width:52px;height:52px;display:grid;place-items:center;cursor:pointer;flex-shrink:0;padding:0;background:none;border:0;transition:transform .12s ease}
+.back-btn:hover{transform:scale(1.04)}
+.back-btn:active{transform:scale(.97)}
+.back-btn img{width:100%;height:100%;object-fit:contain}
 .lesson-head-text{flex:1;min-width:0}
 .lesson-head-text .eyebrow{color:var(--orange);font-size:12px;font-weight:900;margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
 .lesson-head-text h1{font-size:24px;margin:0;font-weight:900}
@@ -352,8 +368,7 @@ img.no-download{ -webkit-touch-callout:none; }
 .robot-fullscreen img{max-width:min(70vw,420px);max-height:70vh;filter:drop-shadow(0 20px 40px rgba(255,121,0,.25))}
 
 /* ===== Боковая панель теории ===== */
-.theory-btn{background:#fff;border:2px solid #ffe9c7}
-.theory-btn img{width:20px;height:20px}
+.theory-btn img{width:52px;height:52px;object-fit:contain;display:block}
 .theory-panel{
   position:fixed;top:0;right:-420px;width:min(400px,90vw);height:100vh;background:#fff;
   box-shadow:-8px 0 30px rgba(0,0,0,.12);z-index:150;transition:right .25s ease;
@@ -445,10 +460,21 @@ img.no-download{ -webkit-touch-callout:none; }
 /* Книжка-теория: см. .theory-btn выше — она теперь находится внутри
    .lesson-head (в самом уроке), а не в общей шапке сайта. */
 
-/* ===== Кнопки-картинки (Проверить / Дальше) ===== */
-.img-btn{padding:0!important;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;overflow:hidden}
-.img-btn img{width:28px;height:28px;object-fit:contain}
-.img-btn:disabled{opacity:.5;cursor:not-allowed}
+/* ===== Кнопки-картинки (Проверить / Дальше / Назад) =====
+   Эти картинки САМИ ПО СЕБЕ уже полностью готовые кнопки — со своей
+   формой, цветом и подписью внутри файла. Поэтому обнуляем ВСЁ, что
+   .check-btn обычно рисует сам (фон, тень, радиус, паддинги) — иначе
+   получается кнопка внутри кнопки. Остаётся только сама картинка. */
+.img-btn{
+  background:none!important;box-shadow:none!important;border-radius:0!important;
+  padding:0!important;margin-top:0!important;border:0!important;
+  width:auto;height:auto;display:inline-block;cursor:pointer;
+  transition:transform .12s ease;
+}
+.img-btn:hover{transform:scale(1.04)}
+.img-btn:active{transform:scale(.97)}
+.img-btn img{display:block;height:64px;width:auto;object-fit:contain}
+.img-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 
 /* ===== Модалка "начать где закончил / с начала" и модалка дневного лимита ===== */
 .resume-modal-overlay{
