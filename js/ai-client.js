@@ -66,3 +66,17 @@ async function generateImage(prompt, size){
   if(!data.url) throw new Error('Изображение не сгенерировано');
   return data.url;
 }
+
+/* ---------- Генерация контрольных работ через NVIDIA (moonshotai/kimi-k3) ----------
+   Используется только в конструкторе контрольных работ для учителя
+   (constructor.html). Сервер сам собирает потоковый ответ NVIDIA в
+   один целый текст и отдаёт его одним JSON-объектом — клиенту не нужно
+   самому разбирать поток событий. */
+async function generateControlWorkText(prompt){
+  const data = await apiCall('nvidia-text', {
+    messages: [{ role:'user', content: prompt }]
+  });
+  const text = data?.choices?.[0]?.message?.content;
+  if(!text) throw new Error('Пустой ответ от ИИ');
+  return text.trim();
+}
