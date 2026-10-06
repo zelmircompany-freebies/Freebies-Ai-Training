@@ -15,6 +15,29 @@
 
 const TOTAL_LESSONS = 20;
 const STORAGE_KEY = 'fat_progress_v2';
+
+/* ===== Роль пользователя (заглушка авторизации) =====
+   Настоящего бэкенда с аккаунтами пока нет — login.html просто
+   сохраняет выбранную роль в localStorage. Эта функция применяет
+   её на каждой странице: показывает пункт "Конструктор контрольных"
+   только учителю, и меняет кнопку "Войти" на имя/роль, если человек
+   уже "вошёл". Вызывается в конце каждой HTML-страницы. */
+function applyUserRoleToHeader(){
+  const loggedIn = localStorage.getItem('fat_logged_in')==='1';
+  const role = localStorage.getItem('fat_user_role');
+  const name = localStorage.getItem('fat_user_name');
+
+  const constructorLink=document.getElementById('constructorMenuLink');
+  if(constructorLink) constructorLink.style.display = (loggedIn && role==='teacher') ? '' : 'none';
+
+  const loginBtn=document.getElementById('loginBtn');
+  if(loginBtn && loggedIn){
+    const roleLabel = role==='teacher' ? 'Учитель' : 'Ученик';
+    loginBtn.textContent = name ? name : roleLabel;
+    loginBtn.onclick=null;
+    loginBtn.removeAttribute('onclick');
+  }
+}
 const DAILY_LIMIT_KEY = 'fat_daily_limit_v1';
 const DAILY_LIMIT_MAX = 35;
 
@@ -1090,3 +1113,166 @@ const CHECKERS={
      завершаются изнутри своего рендера, не через общую кнопку "Проверить" */
 };
 const AFTER={ order:drawOrder, path:drawOrder, voiceguess:drawVoiceRound };
+
+/* ==========================================================
+   Конструктор контрольных работ (constructor.html) — для учителя.
+   Учитель задаёт тему + список заданий (текст задания обязателен,
+   описание — нет). По кнопке собирается один общий промпт со всеми
+   заданиями сразу, уходит в NVIDIA (action=nvidia-text на сервере),
+   результат показывается на странице и доступен как .txt для скачивания.
+   ========================================================== */
+
+let _crTasks=[]; // [{id, text, description}]
+let _crIdSeq=1;
+let _crLastResultText=''; // текст последней успешно сгенерированной к/р — нужен для кнопки "доп. вариант"
+let _crTopicUsed='';
+
+function initConstructorAccess(){
+  const loggedIn = localStorage.getItem('fat_logged_in')==='1';
+  const role = localStorage.getItem('fat_user_role');
+  const isTeacher = loggedIn && role==='teacher';
+  document.getElementById('accessDenied').style.display = isTeacher ? 'none' : '';
+  document.getElementById('constructorContent').style.display = isTeacher ? '' : 'none';
+  if(isTeacher && _crTasks.length===0){
+    addCrTask(); // стартуем с одним пустым заданием, чтобы форма не выглядела пустой
+  }
+}
+
+function addCrTask(){
+  const id=_crIdSeq++;
+  _crTasks.push({id, text:'', description:''});
+  renderCrTasks();
+}
+function removeCrTask(id){
+  _crTasks=_crTasks.filter(t=>t.id!==id);
+  renderCrTasks();
+}
+function moveCrTask(id, dir){
+  const i=_crTasks.findIndex(t=>t.id===id);
+  const j=i+dir;
+  if(i<0||j<0||j>=_crTasks.length) return;
+  [_crTasks[i],_crTasks[j]]=[_crTasks[j],_crTasks[i]];
+  renderCrTasks();
+}
+function updateCrTaskField(id, field, value){
+  const t=_crTasks.find(t=>t.id===id);
+  if(t) t[field]=value;
+}
+
+function renderCrTasks(){
+  const list=document.getElementById('crTasksList');
+  if(!list) return;
+  list.innerHTML=_crTasks.map((t,i)=>`
+    <div class="cr-task-card">
+      <div class="cr-task-card-head">
+        <span class="cr-task-num">${i+1}</span>
+        <div class="cr-task-move">
+          <button type="button" class="cr-mini-btn" ${i===0?'disabled':''} onclick="moveCrTask(${t.id},-1)" title="Переместить выше">↑</button>
+          <button type="button" class="cr-mini-btn" ${i===_crTasks.length-1?'disabled':''} onclick="moveCrTask(${t.id},1)" title="Переместить ниже">↓</button>
+        </div>
+        <button type="button" class="cr-mini-btn cr-remove-btn" onclick="removeCrTask(${t.id})" title="Удалить задание">✕</button>
+      </div>
+      <label class="cr-field-label">Задание <span class="cr-required">*</span></label>
+      <textarea class="cr-field-input" rows="2" placeholder="Например: реши квадратное уравнение"
+        oninput="updateCrTaskField(${t.id},'text',this.value)">${esc(t.text)}</textarea>
+      <label class="cr-field-label">Описание (необязательно)</label>
+      <textarea class="cr-field-input" rows="2" placeholder="Любые уточнения для ИИ — сложность, формат ответа и т.д."
+        oninput="updateCrTaskField(${t.id},'description',this.value)">${esc(t.description)}</textarea>
+    </div>
+  `).join('');
+}
+
+function buildCrPrompt(topic, tasks){
+  let prompt = `Ты помогаешь учителю составить контрольную работу на тему: "${topic}".\n\n`;
+  prompt += `Составь полноценную контрольную работу строго из ${tasks.length} заданий, по одному на каждый пункт ниже. `;
+  prompt += `Не добавляй лишние задания и не убирай ни одного. Оформи результат как готовый текст контрольной работы: `;
+  prompt += `заголовок с темой, затем пронумерованные задания. Если для задания нужны условия (числа, текст для анализа и т.д.) — придумай их сам, подходящие под описание.\n\n`;
+  prompt += `Вот задания, которые задал учитель (в скобках — его пояснения для тебя, в сам текст контрольной их включать не нужно):\n`;
+  tasks.forEach((t,i)=>{
+    prompt += `${i+1}. ${t.text}`;
+    if(t.description && t.description.trim()) prompt += ` (пояснение учителя: ${t.description.trim()})`;
+    prompt += `\n`;
+  });
+  return prompt;
+}
+
+async function generateControlWork(){
+  const topic=(document.getElementById('crTopic').value||'').trim();
+  if(!topic){ notify('Укажи тему контрольной работы'); return; }
+  const validTasks=_crTasks.filter(t=>t.text && t.text.trim());
+  if(validTasks.length===0){ notify('Добавь хотя бы одно задание с текстом'); return; }
+
+  const btn=document.getElementById('crGenerateBtn');
+  const resultBox=document.getElementById('crResult');
+  btn.disabled=true;
+  resultBox.style.display='';
+  resultBox.innerHTML=`<div class="imggen-loading"><div class="spinner"></div>ИИ составляет контрольную работу…</div>`;
+
+  const prompt=buildCrPrompt(topic, validTasks);
+  try{
+    const text=await generateControlWorkText(prompt);
+    _crLastResultText=text;
+    _crTopicUsed=topic;
+    renderCrResult([{title:'Вариант 1', text}]);
+  }catch(err){
+    resultBox.innerHTML=`<div class="imggen-error">Не получилось сгенерировать: ${esc(err.message)}</div>`;
+  }
+  btn.disabled=false;
+}
+
+async function generateExtraVariant(){
+  const resultBox=document.getElementById('crResult');
+  const existingVariants=resultBox.querySelectorAll('.cr-variant').length;
+  const loadingDiv=document.createElement('div');
+  loadingDiv.className='imggen-loading';
+  loadingDiv.innerHTML=`<div class="spinner"></div>Генерирую ещё один вариант…`;
+  resultBox.appendChild(loadingDiv);
+
+  const validTasks=_crTasks.filter(t=>t.text && t.text.trim());
+  const prompt=buildCrPrompt(_crTopicUsed, validTasks) + `\n\nЭто дополнительный, альтернативный вариант той же контрольной — сделай задания на ту же тему, но с другими формулировками и другими условиями/числами, не повторяя первый вариант дословно.`;
+  try{
+    const text=await generateControlWorkText(prompt);
+    loadingDiv.remove();
+    appendCrVariant('Вариант '+(existingVariants+1), text);
+  }catch(err){
+    loadingDiv.innerHTML=`<div class="imggen-error">Не получилось: ${esc(err.message)}</div>`;
+  }
+}
+
+function renderCrResult(variants){
+  const resultBox=document.getElementById('crResult');
+  resultBox.innerHTML=`<div class="cr-variants" id="crVariants"></div>
+    <div class="cr-result-actions">
+      <button type="button" class="check-btn secondary" onclick="generateExtraVariant()">+ Сгенерировать ещё один вариант к/р</button>
+    </div>`;
+  variants.forEach(v=>appendCrVariant(v.title, v.text));
+}
+
+function appendCrVariant(title, text){
+  const container=document.getElementById('crVariants');
+  const div=document.createElement('div');
+  div.className='cr-variant';
+  const fileSafeTopic=(_crTopicUsed||'kontrolnaya').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]+/g,'_').slice(0,40);
+  const fileName=`${fileSafeTopic}_${title.replace(/\s+/g,'_')}.txt`;
+  div.innerHTML=`
+    <div class="cr-variant-head">
+      <b>${esc(title)}</b>
+      <button type="button" class="check-btn secondary cr-download-btn" onclick="downloadCrVariant(this)">⬇ Скачать .txt</button>
+    </div>
+    <pre class="cr-variant-text">${esc(text)}</pre>`;
+  div.dataset.filename=fileName;
+  div.dataset.fulltext=text;
+  container.appendChild(div);
+}
+
+function downloadCrVariant(btn){
+  const variant=btn.closest('.cr-variant');
+  const text=variant.dataset.fulltext;
+  const fileName=variant.dataset.filename;
+  const blob=new Blob([text], {type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=fileName;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}

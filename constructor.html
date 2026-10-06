@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Конструктор контрольных работ — Freebies AI Training</title>
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png">
+<link rel="icon" type="image/x-icon" href="img/favicon.ico">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="header">
+ <div class="container header-inner">
+  <a class="logo" href="index.html">
+   <img src="img/android-chrome-512x512.png" class="logo-mark-img no-download" oncontextmenu="return false" draggable="false" alt="Freebies AI">
+   <span>Freebies Ai<br><span class="logo-orange">Training</span></span>
+  </a>
+  <nav class="nav"><a href="index.html">Главная</a><a href="main.html">Уроки</a><a class="active" href="constructor.html">Конструктор</a></nav>
+  <div class="profile">
+   <button class="login" id="loginBtn" onclick="location.href='login.html'">Войти</button>
+   <button class="menu" onclick="toggleMobileMenu()" aria-label="Меню">☰</button>
+  </div>
+ </div>
+ <div class="mobile-menu" id="mobileMenu">
+  <a href="index.html">Главная</a>
+  <a href="main.html">Уроки</a>
+  <a href="constructor.html">Конструктор контрольных</a>
+ </div>
+</header>
+
+<main class="page">
+ <div class="container constructor-page">
+
+  <!-- Экран доступен только учителю; если роль не teacher — показываем заглушку -->
+  <div id="accessDenied" class="empty-filter-state" style="display:none">
+   <div class="empty-icon">🔒</div>
+   <h3>Доступно только учителям</h3>
+   <p>Этот раздел виден в меню только пользователям с ролью «Учитель». Войди как учитель, чтобы создать контрольную работу.</p>
+   <button class="check-btn" style="margin-top:18px" onclick="location.href='login.html'">Войти как учитель</button>
+  </div>
+
+  <div id="constructorContent" style="display:none">
+   <div class="welcome">
+    <div><h1>Конструктор контрольных работ</h1><p>Опиши тему и задания — нейросеть соберёт готовую контрольную работу.</p></div>
+   </div>
+
+   <!-- Тема контрольной -->
+   <div class="task" style="max-width:none">
+    <div class="task-head">
+     <div class="task-title">Тема контрольной работы</div>
+    </div>
+    <div class="task-body">
+     <input type="text" id="crTopic" class="cr-topic-input" placeholder="Например: «Основы искусственного интеллекта, 8 класс»">
+    </div>
+   </div>
+
+   <!-- Список заданий -->
+   <div class="cr-tasks-list" id="crTasksList"></div>
+
+   <button type="button" class="check-btn secondary" onclick="addCrTask()">+ Добавить задание</button>
+
+   <div class="cr-generate-row">
+    <button type="button" class="check-btn" id="crGenerateBtn" onclick="generateControlWork()">✨ Сгенерировать контрольную работу</button>
+   </div>
+
+   <!-- Результат генерации -->
+   <div id="crResult" class="cr-result" style="display:none"></div>
+  </div>
+
+ </div>
+</main>
+
+<div class="toast" id="toast"></div>
+<script src="js/ai-client.js"></script>
+<script src="script.js"></script>
+<script>
+applyUserRoleToHeader();
+initConstructorAccess();
+
+function toggleMobileMenu(){
+  document.getElementById('mobileMenu').classList.toggle('open');
+}
+</script>
+</body>
+</html>

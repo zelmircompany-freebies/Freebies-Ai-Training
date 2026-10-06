@@ -23,7 +23,7 @@
   <nav class="nav"><a href="index.html">Главная</a><a class="active" href="main.html">Уроки</a><a href="#about">О нас</a><a href="#faq">FAQ</a></nav>
   <div class="profile">
    <span class="coin">🪙 743</span>
-   <button class="login" onclick="notify('Добро пожаловать!')">Войти</button>
+   <button class="login" id="loginBtn" onclick="location.href='login.html'">Войти</button>
    <button class="menu" id="menuBtn" onclick="toggleMobileMenu()" aria-label="Меню">☰</button>
   </div>
  </div>
@@ -31,6 +31,8 @@
  <div class="mobile-menu" id="mobileMenu">
   <a href="index.html">Главная</a>
   <a href="main.html">Уроки</a>
+  <!-- Видна только учителю (localStorage.fat_user_role === 'teacher') -->
+  <a href="constructor.html" id="constructorMenuLink" style="display:none">🧩 Конструктор контрольных работ</a>
   <a href="#about">О нас</a>
   <a href="#faq">FAQ</a>
   <a href="mailto:zelmir.company@gmail.com">Написать нам</a>
@@ -51,9 +53,9 @@
   <div class="daily-limit-box" id="dailyLimitBox"></div>
 
   <div class="tabs" id="filterTabs">
-   <button class="tab tab-img active" data-filter="all" title="Все уроки" aria-label="Все уроки"><img src="img/uroki.png" class="no-download" oncontextmenu="return false" draggable="false" alt="Все уроки"></button>
-   <button class="tab tab-img" data-filter="teachers" title="От преподавателей" aria-label="От преподавателей"><img src="img/tch.png" class="no-download" oncontextmenu="return false" draggable="false" alt="От преподавателей"></button>
-   <button class="tab tab-img" data-filter="users" title="Пользовательские" aria-label="Пользовательские"><img src="img/users.png" class="no-download" oncontextmenu="return false" draggable="false" alt="Пользовательские"></button>
+   <button class="tab active" data-filter="all">Все уроки</button>
+   <button class="tab" data-filter="teachers">От преподавателей</button>
+   <button class="tab" data-filter="users">Пользовательские</button>
   </div>
 
   <section class="lesson-grid" id="lessonGrid">
@@ -95,6 +97,7 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
 
 renderLessonGrid();
 renderDailyLimitBox();
+applyUserRoleToHeader();
 
 // случайный робот-приветствие (Mood01-03) при каждой загрузке главной
 (function(){
