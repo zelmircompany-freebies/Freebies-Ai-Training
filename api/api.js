@@ -8,6 +8,10 @@
 //   ?action=agnes-video-status (GET)   — статус генерации видео (+ ?video_id=...)
 //   ?action=agnes-text         (POST)  — чат через Agnes AI (Agnes 2.5 Pro), напрямую,
 //                                        без OpenRouter. Ключи: AGNES_KEY, AGNES_BACKUP_KEYS.
+//   ?action=nvidia-text        (POST)  — генерация контрольных работ через NVIDIA
+//                                        (moonshotai/kimi-k3). Ключи: NVIDIA_KEY,
+//                                        NVIDIA_BACKUP_KEYS. Используется только
+//                                        конструктором контрольных работ (роль "учитель").
 //   ?action=pixazo-image       (POST)  — генерация изображения через Pixazo SDXL Base 1.0
 //   ?action=pixazo-video       (POST)  — запуск генерации видео через Pixazo LTX-2.5 Fast
 //   ?action=pixazo-video-status (GET)  — статус генерации видео LTX (+ ?request_id=...)
@@ -60,6 +64,15 @@ function getAgnesKeyPool() {
     .map(k => k.trim())
     .filter(Boolean);
   return AGNES_KEY ? [AGNES_KEY, ...AGNES_BACKUP_KEYS] : [];
+}
+
+function getNvidiaKeyPool() {
+  const NVIDIA_KEY = process.env.NVIDIA_KEY;
+  const NVIDIA_BACKUP_KEYS = (process.env.NVIDIA_BACKUP_KEYS || '')
+    .split(',')
+    .map(k => k.trim())
+    .filter(Boolean);
+  return NVIDIA_KEY ? [NVIDIA_KEY, ...NVIDIA_BACKUP_KEYS] : [];
 }
 
 function getPixazoKeyPool() {
@@ -232,6 +245,44 @@ async function handleAgnesText(req, res) {
     return res.status(200).json(data);
   } catch (err) {
     return res.status(502).json({ error: err.message || 'Agnes text request failed' });
+  }
+}
+
+/* ============ nvidia-text (генерация контрольных работ через NVIDIA) ============
+   Используется только конструктором контрольных работ (учительская роль).
+   Модель: moonshotai/kimi-k3, endpoint: integrate.api.nvidia.com.
+   Официальный пример NVIDIA использует stream:true (Server-Sent Events) —
+   здесь намеренно используется stream:false, чтобы NVIDIA сама отдала
+   готовый ответ одним JSON-объектом, без сборки SSE-потока на сервере.
+   Формат ответа остаётся тем же OpenAI-совместимым (choices[0].message.content),
+   так что клиент разбирает его точно так же, как ответ agnes-text. */
+async function handleNvidiaText(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+  const NVIDIA_MODEL = 'moonshotai/kimi-k3';
+  const keyPool = getNvidiaKeyPool();
+
+  if (!keyPool.length) return res.status(500).json({ error: 'NVIDIA_KEY is not configured on the server' });
+
+  try {
+    const { messages, max_tokens } = req.body || {};
+    if (!messages) return res.status(400).json({ error: 'Missing "messages" in request body' });
+
+    const payload = {
+      model: NVIDIA_MODEL,
+      messages,
+      max_tokens: max_tokens || 16384,
+      temperature: 1,
+      seed: 0,
+      stream: false,
+    };
+
+    const data = await callWithRetry(NVIDIA_URL, payload, keyPool);
+
+    return res.status(200).json(data);
+  } catch (err) {
+    return res.status(502).json({ error: err.message || 'NVIDIA text request failed' });
   }
 }
 
@@ -561,6 +612,7 @@ const ROUTES = {
   'agnes-video': handleAgnesVideo,
   'agnes-video-status': handleAgnesVideoStatus,
   'agnes-text': handleAgnesText,
+  'nvidia-text': handleNvidiaText,
   'pixazo-image': handlePixazoImage,
   'pixazo-video': handlePixazoVideo,
   'pixazo-video-status': handlePixazoVideoStatus,
