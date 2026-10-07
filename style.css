@@ -589,3 +589,30 @@ img.no-download{ -webkit-touch-callout:none; }
   max-height:420px;overflow-y:auto;margin:0;
 }
 .cr-result-actions{margin-top:18px;text-align:center}
+
+/* ===== Конструктор: дисклеймер, выход, история ===== */
+.cr-disclaimer{
+  background:#fff4e0;border:2px solid #ffd79a;border-radius:16px;
+  padding:14px 18px;font-size:13px;line-height:1.55;color:#7a5900;
+  font-weight:700;margin-top:18px;
+}
+.cr-result-actions{margin-top:18px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.cr-leave-btn{background:linear-gradient(135deg,#8a84a0,#5d5770);box-shadow:0 4px 0 #44405a}
+.cr-leave-btn:active{box-shadow:0 1px 0 #44405a}
+
+.cr-variant-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.cr-variant-text{
+  white-space:pre-wrap;word-break:break-word;font-size:13.5px;
+  line-height:1.65;color:#4a4460;background:#fff;border-radius:12px;padding:16px;
+  max-height:420px;overflow-y:auto;
+}
+
+/* История конструктора — переиспользует .theory-panel (боковая выезжающая панель) */
+.cr-history-panel .theory-panel-body{display:flex;flex-direction:column;gap:12px}
+.cr-history-empty{color:var(--muted);font-size:13.5px;text-align:center;padding:30px 10px}
+.cr-history-item{background:#fff8ec;border:2px solid #ffe9c7;border-radius:16px;padding:14px 16px}
+.cr-history-item-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.cr-history-item-head b{font-size:14px;color:var(--ink)}
+.cr-history-date{font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap}
+.cr-history-meta{font-size:12px;color:var(--muted);margin-bottom:10px}
+.cr-history-item .check-btn{width:100%;padding:9px;font-size:12.5px;margin-top:0}

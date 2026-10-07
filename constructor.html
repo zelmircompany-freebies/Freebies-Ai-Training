@@ -25,6 +25,7 @@
   <a href="index.html">Главная</a>
   <a href="main.html">Уроки</a>
   <a href="constructor.html">Конструктор контрольных</a>
+  <a href="#" id="logoutMenuLink" style="display:none" onclick="logout(); return false">🚪 Выйти из аккаунта</a>
  </div>
 </header>
 
@@ -42,6 +43,7 @@
   <div id="constructorContent" style="display:none">
    <div class="welcome">
     <div><h1>Конструктор контрольных работ</h1><p>Опиши тему и задания — нейросеть соберёт готовую контрольную работу.</p></div>
+    <button type="button" class="check-btn secondary" onclick="openCrHistoryPanel()">🕑 История</button>
    </div>
 
    <!-- Тема контрольной -->
@@ -69,6 +71,16 @@
 
  </div>
 </main>
+
+<!-- Боковая панель истории конструктора -->
+<div id="crHistoryPanel" class="theory-panel cr-history-panel">
+  <div class="theory-panel-head">
+    <span>История контрольных</span>
+    <button class="theory-close" onclick="closeCrHistoryPanel()">✕</button>
+  </div>
+  <div class="theory-panel-body" id="crHistoryList"></div>
+</div>
+<div class="theory-panel-overlay" onclick="closeCrHistoryPanel()" id="crHistoryOverlay"></div>
 
 <div class="toast" id="toast"></div>
 <script src="js/ai-client.js"></script>

@@ -37,6 +37,20 @@ function applyUserRoleToHeader(){
     loginBtn.onclick=null;
     loginBtn.removeAttribute('onclick');
   }
+
+  // Кнопка "Выйти" в гамбургер-меню — видна только залогиненным
+  const logoutLink=document.getElementById('logoutMenuLink');
+  if(logoutLink) logoutLink.style.display = loggedIn ? '' : 'none';
+}
+
+// Сбрасывает заглушку авторизации и возвращает на экран входа.
+// Прогресс по урокам и дневной лимит НЕ трогаем — это данные обучения,
+// а не данные аккаунта, выходить из них незачем.
+function logout(){
+  localStorage.removeItem('fat_logged_in');
+  localStorage.removeItem('fat_user_role');
+  localStorage.removeItem('fat_user_name');
+  location.href='login.html';
 }
 const DAILY_LIMIT_KEY = 'fat_daily_limit_v1';
 const DAILY_LIMIT_MAX = 35;
@@ -1182,18 +1196,67 @@ function renderCrTasks(){
   `).join('');
 }
 
+// Служебный разделитель, по которому мы потом режем ответ ИИ на две части:
+// текст самой контрольной (для учеников) и правильные ответы (для учителя).
+// ИИ видит эту метку в инструкции и обязан вставить её в ответ буквально.
+const CR_ANSWER_SPLIT_MARKER = '===ОТВЕТЫ_ДЛЯ_УЧИТЕЛЯ===';
+
 function buildCrPrompt(topic, tasks){
   let prompt = `Ты помогаешь учителю составить контрольную работу на тему: "${topic}".\n\n`;
   prompt += `Составь полноценную контрольную работу строго из ${tasks.length} заданий, по одному на каждый пункт ниже. `;
-  prompt += `Не добавляй лишние задания и не убирай ни одного. Оформи результат как готовый текст контрольной работы: `;
-  prompt += `заголовок с темой, затем пронумерованные задания. Если для задания нужны условия (числа, текст для анализа и т.д.) — придумай их сам, подходящие под описание.\n\n`;
+  prompt += `Не добавляй лишние задания и не убирай ни одного. Если для задания нужны условия (числа, текст для анализа и т.д.) — придумай их сам, подходящие под описание.\n\n`;
+  prompt += `ВАЖНЫЕ ПРАВИЛА ОФОРМЛЕНИЯ — это будет сохранено в обычный текстовый .txt файл, Markdown-разметка там не отображается, поэтому:\n`;
+  prompt += `— НЕ используй символы #, *, ** нигде в ответе;\n`;
+  prompt += `— НЕ используй строки из дефисов (---) как разделители;\n`;
+  prompt += `— если нужно выделить слово — пиши его ПРОПИСНЫМИ БУКВАМИ, а не звёздочками;\n`;
+  prompt += `— название контрольной работы дай первой строкой, простым текстом, без решёток и других символов разметки;\n`;
+  prompt += `— задания нумеруй обычными числами (1. 2. 3. ...), между заданиями оставляй просто пустую строку, без ---.\n\n`;
   prompt += `Вот задания, которые задал учитель (в скобках — его пояснения для тебя, в сам текст контрольной их включать не нужно):\n`;
   tasks.forEach((t,i)=>{
     prompt += `${i+1}. ${t.text}`;
     if(t.description && t.description.trim()) prompt += ` (пояснение учителя: ${t.description.trim()})`;
     prompt += `\n`;
   });
+  prompt += `\nПосле того как напишешь полный текст контрольной работы (без единого намёка на правильные ответы внутри него), `;
+  prompt += `поставь на отдельной строке ровно такую метку: ${CR_ANSWER_SPLIT_MARKER}\n`;
+  prompt += `И сразу под ней, тоже простым текстом без Markdown, напиши правильные ответы по каждому заданию (например: "Задание 1 — б (2000 год)").`;
   return prompt;
+}
+
+/* ---------- Очистка ответа ИИ от Markdown-разметки ----------
+   Модель иногда всё равно подставляет #, **, --- несмотря на просьбу
+   не делать этого в промпте — поэтому чистим результат программно,
+   а не полагаемся только на инструкцию. forHtml=true оставляет **текст**
+   как настоящий <b>жирный</b> для показа на экране; forHtml=false
+   (для .txt файла) переводит такие слова в ЗАГЛАВНЫЕ БУКВЫ, потому что
+   обычный текстовый файл не умеет жирный шрифт. */
+function cleanAiFormatting(text, forHtml){
+  let out = text;
+  // заголовки markdown (# Текст, ## Текст и т.д.) — убираем решётки
+  out = out.replace(/^#{1,6}\s*/gm, '');
+  // строки-разделители из дефисов/звёздочек/подчёркиваний (---, ***, ___)
+  out = out.replace(/^[\s]*[-*_]{3,}[\s]*$/gm, '');
+  // схлопываем образовавшиеся пустые строки (больше двух подряд)
+  out = out.replace(/\n{3,}/g, '\n\n');
+  if(forHtml){
+    out = esc(out).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  } else {
+    out = out.replace(/\*\*(.+?)\*\*/g, (m, inner)=>inner.toUpperCase());
+    out = out.replace(/\*(.+?)\*/g, '$1'); // одиночные * тоже убираем, просто снимаем разметку
+  }
+  return out.trim();
+}
+
+// Делит сырой ответ ИИ на { studentText, teacherAnswers } по служебной метке.
+// Если модель метку не поставила (бывает) — весь текст уходит ученикам,
+// а блок с ответами остаётся пустым, чтобы ничего не потерять молча.
+function splitCrResponse(raw){
+  const idx = raw.indexOf(CR_ANSWER_SPLIT_MARKER);
+  if(idx === -1) return { studentText: raw.trim(), teacherAnswers: '' };
+  return {
+    studentText: raw.slice(0, idx).trim(),
+    teacherAnswers: raw.slice(idx + CR_ANSWER_SPLIT_MARKER.length).trim()
+  };
 }
 
 async function generateControlWork(){
@@ -1210,10 +1273,11 @@ async function generateControlWork(){
 
   const prompt=buildCrPrompt(topic, validTasks);
   try{
-    const text=await generateControlWorkText(prompt);
-    _crLastResultText=text;
+    const raw=await generateControlWorkText(prompt);
+    _crLastResultText=raw;
     _crTopicUsed=topic;
-    renderCrResult([{title:'Вариант 1', text}]);
+    renderCrResult([{title:'Вариант 1', raw}]);
+    saveCrHistoryEntry(topic, validTasks, [{title:'Вариант 1', raw}]);
   }catch(err){
     resultBox.innerHTML=`<div class="imggen-error">Не получилось сгенерировать: ${esc(err.message)}</div>`;
   }
@@ -1226,14 +1290,16 @@ async function generateExtraVariant(){
   const loadingDiv=document.createElement('div');
   loadingDiv.className='imggen-loading';
   loadingDiv.innerHTML=`<div class="spinner"></div>Генерирую ещё один вариант…`;
-  resultBox.appendChild(loadingDiv);
+  resultBox.insertBefore(loadingDiv, resultBox.querySelector('.cr-result-actions'));
 
   const validTasks=_crTasks.filter(t=>t.text && t.text.trim());
   const prompt=buildCrPrompt(_crTopicUsed, validTasks) + `\n\nЭто дополнительный, альтернативный вариант той же контрольной — сделай задания на ту же тему, но с другими формулировками и другими условиями/числами, не повторяя первый вариант дословно.`;
   try{
-    const text=await generateControlWorkText(prompt);
+    const raw=await generateControlWorkText(prompt);
     loadingDiv.remove();
-    appendCrVariant('Вариант '+(existingVariants+1), text);
+    const title='Вариант '+(existingVariants+1);
+    appendCrVariant(title, raw);
+    appendCrHistoryVariant(title, raw);
   }catch(err){
     loadingDiv.innerHTML=`<div class="imggen-error">Не получилось: ${esc(err.message)}</div>`;
   }
@@ -1242,37 +1308,163 @@ async function generateExtraVariant(){
 function renderCrResult(variants){
   const resultBox=document.getElementById('crResult');
   resultBox.innerHTML=`<div class="cr-variants" id="crVariants"></div>
+    <div class="cr-disclaimer">
+      ⚠️ Перед тем как раздать контрольную работу ученикам, обязательно проверь задания и ответы на достоверность и корректность — ИИ может допускать ошибки, и ответственность за содержание контрольной остаётся на учителе.
+    </div>
     <div class="cr-result-actions">
       <button type="button" class="check-btn secondary" onclick="generateExtraVariant()">+ Сгенерировать ещё один вариант к/р</button>
+      <button type="button" class="check-btn cr-leave-btn" onclick="leaveConstructor()">Покинуть конструктор</button>
     </div>`;
-  variants.forEach(v=>appendCrVariant(v.title, v.text));
+  variants.forEach(v=>appendCrVariant(v.title, v.raw));
 }
 
-function appendCrVariant(title, text){
+function appendCrVariant(title, raw){
   const container=document.getElementById('crVariants');
   const div=document.createElement('div');
   div.className='cr-variant';
+
+  const { studentText, teacherAnswers } = splitCrResponse(raw);
+  const studentClean = cleanAiFormatting(studentText, false);
+  const studentHtml = cleanAiFormatting(studentText, true);
+  const answersClean = teacherAnswers ? cleanAiFormatting(teacherAnswers, false) : '';
+
   const fileSafeTopic=(_crTopicUsed||'kontrolnaya').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]+/g,'_').slice(0,40);
-  const fileName=`${fileSafeTopic}_${title.replace(/\s+/g,'_')}.txt`;
+  const variantSlug=title.replace(/\s+/g,'_');
+  const studentFileName=`${fileSafeTopic}_${variantSlug}.txt`;
+  const answersFileName=`${fileSafeTopic}_${variantSlug}_Ответы.txt`;
+
   div.innerHTML=`
     <div class="cr-variant-head">
       <b>${esc(title)}</b>
-      <button type="button" class="check-btn secondary cr-download-btn" onclick="downloadCrVariant(this)">⬇ Скачать .txt</button>
+      <div class="cr-variant-buttons">
+        <button type="button" class="check-btn secondary cr-download-btn" onclick="downloadCrFile(this,'student')">⬇ Скачать к/р (.txt)</button>
+        ${answersClean ? `<button type="button" class="check-btn secondary cr-download-btn" onclick="downloadCrFile(this,'answers')">⬇ Скачать ответы (.txt)</button>` : ''}
+      </div>
     </div>
-    <pre class="cr-variant-text">${esc(text)}</pre>`;
-  div.dataset.filename=fileName;
-  div.dataset.fulltext=text;
+    <div class="cr-variant-text">${studentHtml.replace(/\n/g,'<br>')}</div>`;
+
+  div.dataset.studentFile=studentFileName;
+  div.dataset.studentText=studentClean;
+  div.dataset.answersFile=answersFileName;
+  div.dataset.answersText=answersClean;
   container.appendChild(div);
 }
 
-function downloadCrVariant(btn){
+// type: 'student' — текст самой контрольной; 'answers' — отдельный файл с ответами
+function downloadCrFile(btn, type){
   const variant=btn.closest('.cr-variant');
-  const text=variant.dataset.fulltext;
-  const fileName=variant.dataset.filename;
+  const text = type==='answers' ? variant.dataset.answersText : variant.dataset.studentText;
+  const fileName = type==='answers' ? variant.dataset.answersFile : variant.dataset.studentFile;
   const blob=new Blob([text], {type:'text/plain;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url; a.download=fileName;
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
+}
+
+/* ---------- "Покинуть конструктор" — сброс формы и переход на главную ---------- */
+function leaveConstructor(){
+  _crTasks=[];
+  _crIdSeq=1;
+  _crLastResultText='';
+  _crTopicUsed='';
+  location.href='main.html';
+}
+
+/* ==========================================================
+   История конструктора — каждая сгенерированная контрольная
+   сохраняется в localStorage, чтобы учитель мог позже вернуться
+   и посмотреть/переделать то, что уже делал. Хранится сырой текст
+   (raw, с меткой-разделителем) — чтобы при возврате можно было
+   заново применить cleanAiFormatting/splitCrResponse, если логика
+   форматирования когда-нибудь изменится.
+   ========================================================== */
+const CR_HISTORY_KEY='fat_cr_history_v1';
+
+function getCrHistory(){
+  try{ return JSON.parse(localStorage.getItem(CR_HISTORY_KEY)||'[]'); }
+  catch(e){ return []; }
+}
+function saveCrHistoryToStorage(history){
+  // храним не более 30 последних контрольных, чтобы localStorage не раздувался
+  localStorage.setItem(CR_HISTORY_KEY, JSON.stringify(history.slice(-30)));
+}
+function saveCrHistoryEntry(topic, tasks, variants){
+  const history=getCrHistory();
+  history.push({
+    id: Date.now(),
+    topic,
+    tasks: tasks.map(t=>({text:t.text, description:t.description})),
+    variants: variants.map(v=>({title:v.title, raw:v.raw})),
+    createdAt: new Date().toISOString()
+  });
+  saveCrHistoryToStorage(history);
+}
+function appendCrHistoryVariant(title, raw){
+  const history=getCrHistory();
+  const last=history[history.length-1];
+  if(last && last.topic===_crTopicUsed){
+    last.variants.push({title, raw});
+    saveCrHistoryToStorage(history);
+  }
+}
+
+function renderCrHistoryPanel(){
+  const panel=document.getElementById('crHistoryList');
+  if(!panel) return;
+  const history=getCrHistory().slice().reverse(); // новые сверху
+  if(history.length===0){
+    panel.innerHTML=`<p class="cr-history-empty">Пока нет сохранённых контрольных — они будут появляться здесь после генерации.</p>`;
+    return;
+  }
+  panel.innerHTML=history.map(entry=>{
+    const date=new Date(entry.createdAt);
+    const dateLabel=date.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+date.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+    return `
+    <div class="cr-history-item">
+      <div class="cr-history-item-head">
+        <b>${esc(entry.topic)}</b>
+        <span class="cr-history-date">${dateLabel}</span>
+      </div>
+      <div class="cr-history-meta">${entry.tasks.length} заданий · ${entry.variants.length} вариант(ов)</div>
+      <button type="button" class="check-btn secondary" onclick="restoreCrHistoryEntry(${entry.id})">Открыть и продолжить</button>
+    </div>`;
+  }).join('');
+}
+
+function restoreCrHistoryEntry(id){
+  const history=getCrHistory();
+  const entry=history.find(e=>e.id===id);
+  if(!entry){ notify('Эта запись истории не найдена'); return; }
+
+  // восстанавливаем форму заданий
+  _crTasks=entry.tasks.map(t=>({id:_crIdSeq++, text:t.text, description:t.description}));
+  document.getElementById('crTopic').value=entry.topic;
+  _crTopicUsed=entry.topic;
+  renderCrTasks();
+
+  // восстанавливаем уже сгенерированный результат, если он был
+  if(entry.variants && entry.variants.length){
+    document.getElementById('crResult').style.display='';
+    renderCrResult(entry.variants);
+  }
+
+  closeCrHistoryPanel();
+  window.scrollTo({top:0, behavior:'smooth'});
+  notify('Контрольная восстановлена — можно продолжить редактирование');
+}
+
+function openCrHistoryPanel(){
+  renderCrHistoryPanel();
+  const panel=document.getElementById('crHistoryPanel');
+  const overlay=document.getElementById('crHistoryOverlay');
+  if(panel) panel.classList.add('open');
+  if(overlay) overlay.style.display='block';
+}
+function closeCrHistoryPanel(){
+  const panel=document.getElementById('crHistoryPanel');
+  const overlay=document.getElementById('crHistoryOverlay');
+  if(panel) panel.classList.remove('open');
+  if(overlay) overlay.style.display='none';
 }
